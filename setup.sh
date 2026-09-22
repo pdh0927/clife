@@ -1,13 +1,12 @@
 #!/bin/bash
-# One-shot install: wires up statusline.sh/settings.json, builds the app, and
-# installs it into /Applications. Runs install.sh + build.sh as separate steps
-# (still usable on their own) rather than duplicating their logic.
+# One-shot install: builds the app and installs it into /Applications.
+# Runs build.sh as a separate step (still usable on its own) rather than
+# duplicating its logic.
 set -e
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$DIR"
 
-./install.sh
 ./build.sh
 
 pkill -f "Clife.app/Contents/MacOS/Clife" 2>/dev/null || true
@@ -23,6 +22,10 @@ Installed to /Applications/Clife.app and launched.
 If macOS blocked the launch with an "unidentified developer" warning:
 Right-click Clife.app in /Applications > Open > Open, once.
 
-Usage numbers only appear for Pro/Max accounts, and only after Claude Code's
-first response in a session writes rate_limits into the hook JSON.
+The first refresh may ask for permission to read the "Claude Code-credentials"
+keychain item. Choose "Always Allow" -- the app reads that token to call the
+same usage endpoint Claude's own menu bar popup uses.
+
+Usage numbers only exist for Pro/Max accounts, and only once you've logged in
+with `claude` at least once.
 EOF
