@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
-"""생성된 스프라이트 시트를 앱이 쓸 프레임으로 가공한다.
+"""생성된 그림을 앱이 쓸 프레임으로 가공한다.
 
-    python3 assets/dog/prepare.py <시트.png> <정지포즈.png>
+    python3 assets/dog/prepare.py --frames a.png b.png c.png d.png --stand tired.png
+    python3 assets/dog/prepare.py --sheet sheet.png --stand tired.png
+
+`--frames` 가 기본이다. 준 순서가 곧 재생 순서다. 한 이미지 안에 여러 칸을 요구하면
+모델은 "애니메이션"이 아니라 "같은 캐릭터를 여러 번"으로 해석해서 거의 같은 포즈만
+돌려준다 — 실제로 첫 시트는 발이 263px 캔버스에서 10px 밖에 안 움직였다. 한 장에
+한 포즈씩 뽑으면 그럴 수가 없다. `--sheet` 는 그래도 시트를 쓰고 싶을 때의 경로다.
 
 이미지 생성 모델은 "투명 배경"을 요구해도 **체커보드 무늬를 그려서** 돌려주는
 경우가 많다. 알파가 전부 255인 불투명 이미지인데 투명해 보이는 그림일 뿐이다.
@@ -16,7 +22,7 @@
 가로 중심을 맞춘다 — 달릴 때 다리는 오르내리지만 머리 높이는 거의 일정하므로,
 머리를 맞추면 몸의 바운스는 남고 캔버스 안에서의 표류만 사라진다.
 """
-import sys
+import argparse
 from collections import deque
 from pathlib import Path
 
@@ -89,39 +95,84 @@ def collar_width(image):
     return sel.max() - sel.min() + 1
 
 
+def stride_report(frames):
+    """다리가 실제로 움직이는지 잰다.
+
+    이걸 넣어두는 이유는, 이 파이프라인이 한 번 조용히 실패했기 때문이다 — 그림은
+    멀쩡하고 정렬도 완벽했는데 프레임에 보폭이 없었고, 앱에 넣고 나서야 알았다.
+    """
+    spans, centres = [], []
+    for f in frames:
+        a = np.array(f)[:, :, 3] > 0
+        ys, xs = np.where(a)
+        bottom = ys.max()
+        band = a[max(0, bottom - 28):bottom + 1, :]
+        _, bx = np.where(band)
+        spans.append(bx.max() - bx.min() + 1)
+        centres.append(bx.mean())
+    travel = max(centres) - min(centres)
+    width = frames[0].width
+    pct = 100 * travel / width
+    print(f"발 이동폭 {travel:.0f}px / 캔버스 {width}px = {pct:.1f}%"
+          f"   발 벌어짐 {min(spans)}~{max(spans)}px")
+    if pct < 8:
+        print("  ⚠️  다리가 거의 안 움직인다. 프레임에 없는 움직임은 재생으로 못 만든다.")
+        print("      PROMPTS.md 의 포즈 4종으로 한 장씩 다시 뽑는 편이 빠르다.")
+    else:
+        print("  ✓ 보폭 있음")
+
+
 def main():
-    if len(sys.argv) != 3:
-        sys.exit(__doc__)
-    sheet, standing = dekey(sys.argv[1]), dekey(sys.argv[2])
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    src = ap.add_mutually_exclusive_group(required=True)
+    src.add_argument("--frames", nargs="+", help="달리기 프레임들. 준 순서가 재생 순서")
+    src.add_argument("--sheet", help="여러 칸이 든 스프라이트 시트 한 장")
+    ap.add_argument("--stand", required=True, help="정지/지친 포즈 한 장")
+    args = ap.parse_args()
 
-    a = np.array(sheet)[:, :, 3]
-    rows = bands((a > 0).sum(axis=1))
-    cols = bands((a > 0).sum(axis=0))
-    print(f"격자 감지: {len(rows)}행 x {len(cols)}열 = {len(rows) * len(cols)}프레임")
+    if args.frames:
+        cut = [tight(dekey(f)) for f in args.frames]
+        print(f"프레임 {len(cut)}장")
+    else:
+        sheet = dekey(args.sheet)
+        a = np.array(sheet)[:, :, 3]
+        rows = bands((a > 0).sum(axis=1))
+        cols = bands((a > 0).sum(axis=0))
+        print(f"격자 감지: {len(rows)}행 x {len(cols)}열 = {len(rows) * len(cols)}프레임")
+        cut = [tight(sheet.crop((x0, y0, x1, y1)))
+               for (y0, y1) in rows for (x0, x1) in cols]
 
-    cut = [tight(sheet.crop((x0, y0, x1, y1)))
-           for (y0, y1) in rows for (x0, x1) in cols]
+    standing = dekey(args.stand)
 
     width = max(f.width for f in cut) + PAD_TOP * 2
     height = max(f.height for f in cut) + PAD_TOP * 2
     print(f"공통 캔버스 {width} x {height}")
 
+    placed = []
     for index, frame in enumerate(cut, start=1):
         canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
         canvas.alpha_composite(frame, ((width - frame.width) // 2, PAD_TOP))
         canvas.save(OUT / f"run-{index}.png")
+        placed.append(canvas)
 
-    # 정지 포즈를 달리기 프레임과 같은 스케일로
+    # 남아 있던 이전 프레임이 더 많으면 지운다 — 안 그러면 4장 넣었는데 10장이 돈다
+    extra = len(cut) + 1
+    while (OUT / f"run-{extra}.png").exists():
+        (OUT / f"run-{extra}.png").unlink()
+        extra += 1
+
     scale = collar_width(cut[0]) / collar_width(standing)
     stand = tight(standing)
     stand = stand.resize((round(stand.width * scale), round(stand.height * scale)),
                          Image.LANCZOS)
-    floor = np.where(np.array(cut[0])[:, :, 3] > 0)[0].max() + PAD_TOP
+    floor = np.where(np.array(placed[0])[:, :, 3] > 0)[0].max()
     canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     canvas.alpha_composite(stand, ((width - stand.width) // 2, max(0, floor - stand.height)))
     canvas.save(OUT / "stand.png")
 
     print(f"저장: run-1..{len(cut)}.png, stand.png  (정지 포즈 배율 {scale:.3f})")
+    stride_report(placed)
 
 
 if __name__ == "__main__":

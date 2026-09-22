@@ -1,150 +1,148 @@
 # Nano Banana 프롬프트
 
-목표는 **달리기 사이클 6프레임 + 앉아 쉬는 포즈 1장**. `README.md` 의 방식 1.
+## 먼저 — 실패한 방법과 그 이유
 
-그림체는 **메신저 이모티콘(카카오톡·위챗 스티커)** 이다. 플랫 벡터 아이콘이 아니라,
-손으로 그린 듯한 두꺼운 갈색 외곽선에, 네 발로 신나게 달리는 통통한 강아지.
+첫 시도는 "6프레임 달리기 사이클을 한 장의 스프라이트 시트로" 였다. 결과는 **거의 같은
+포즈 열 장**이었다. 측정해보니 발이 263px 캔버스에서 10px, 4%도 안 움직였다.
 
-## 핵심 전략 — 한 장으로 뽑는다
+한 이미지 안에 여러 칸을 요구하면 모델은 그걸 "애니메이션"이 아니라 **"같은 캐릭터를
+여러 번"** 으로 해석한다. 칸마다 다리 위치를 문장으로 못 박아도 이 경향은 잘 안 꺾인다.
 
-프레임을 따로 생성하면 캐릭터가 조금씩 달라져서 애니메이션이 깜빡인다.
-**스프라이트 시트 한 장으로 생성하면 일관성이 공짜로 따라온다** — 한 번의 생성 안에서는
-같은 캐릭터가 유지되기 때문이다. 시트를 자르는 건 내가 한다.
+**그래서 한 번에 한 포즈씩 뽑는다.** 한 장에 한 자세만 그리게 하면 다른 자세가 나올
+수밖에 없다. 캐릭터 일관성은 기존 그림을 레퍼런스로 첨부해서 잡는다.
 
----
+## 몇 장이 필요한가
 
-## 1. 달리기 사이클 (첫 번째로 이것부터)
+**4장이면 충분하다.** 2장만 번갈아도 달리기로 읽힌다 — 픽셀 게임에서 오래 쓰인 방법이고,
+46pt 크기에서는 다리 디테일보다 **극과 극의 대비**가 훨씬 중요하다.
 
-> **한 번 실패한 지점.** "6 frames of a smooth running cycle" 처럼 추상적으로 말하면
-> 모델이 안전하게 **거의 같은 포즈를 여섯 번** 그린다. 실제로 받은 시트는 다리
-> 가로폭이 185~206px 로 ±5% 만 변했다 — 진짜 갤럽이면 50% 넘게 출렁인다.
-> 그래서 **칸마다 다리 위치를 문장으로 못 박는다.** 이게 이 프롬프트의 핵심이다.
-
-```
-A sprite sheet in the style of a Korean KakaoTalk / Chinese WeChat messenger
-emoticon sticker: one cute cartoon puppy running, drawn as 6 frames in ONE
-horizontal row, evenly spaced, left to right.
-
-CHARACTER (identical in all 6 frames)
-A chubby round puppy in side view, facing RIGHT. Chibi proportions — big round
-head, plump body, short stubby legs, short tail. Droopy pug-like muzzle, sleepy
-half-closed eyes, two long floppy ears, a red collar with small gold studs, warm
-tan-brown fur, a darker brown patch on the head, a cream-beige belly.
-
-STYLE
-Hand-drawn messenger sticker look. Thick, slightly uneven dark-brown outlines.
-Completely flat fill colours, NO gradients, NO shading, NO texture. Bold and
-simple enough to stay readable when shrunk very small.
-
-THE 6 FRAMES — the legs MUST be in dramatically different positions in each one.
-Each frame must have a clearly different silhouette. Do NOT repeat a pose.
-
-Frame 1: legs at MAXIMUM SPREAD — front leg thrown far forward, back leg kicked
-         far behind, the gap between the paws as wide as the dog's whole body.
-         Both paws off the ground.
-Frame 2: front paw striking the ground, back leg swinging forward, legs about
-         half as far apart as frame 1.
-Frame 3: legs CROSSED and close together directly under the body, almost
-         touching, the dog at its most compact.
-Frame 4: the opposite of frame 1 — the other front leg thrown far forward, the
-         other back leg kicked far behind, maximum spread again.
-Frame 5: mirror of frame 2 — the other front paw striking the ground.
-Frame 6: legs gathered tightly under the body, airborne, the whole dog lifted
-         highest off the ground.
-
-Also vary across the frames: the ears flap up and down, the tail swings, the body
-rises and falls. But the dog stays in the same spot inside its cell — only the
-limbs and ears move.
-
-CRITICAL
-Transparent background — actual alpha transparency, NOT a drawn checkerboard
-pattern. No ground, no shadow, no scenery, no text, no Chinese or Korean
-characters, no watermark, no frame borders, no numbers, no grid lines. All 6
-cells identical in size, the dog the same size and at the same height in each.
-```
-
-**비율**: 가로로 긴 것. `6:1` 이 안 되면 `16:9`.
-
-### 받고 나서 30초 안에 확인할 것
-
-6칸을 나란히 놓고 **다리만** 본다. 1·4번 칸의 다리가 활짝 벌어지고 3·6번 칸이
-오므려져 있으면 성공이다. 여섯 칸이 다 비슷해 보이면 **다시 돌린다** — 재생 속도로는
-고칠 수 없다. 프레임에 없는 움직임은 어디서도 생기지 않는다.
-
-시트가 계속 비슷하게만 나오면 아래 3번(프레임별 개별 생성)으로 간다. 느리지만 확실하다.
-
-### 배경이 체커보드로 나오면
-
-투명 배경을 요구해도 **투명해 보이는 무늬를 그려서** 주는 경우가 흔하다(실제로 겪었다).
-알파는 전부 불투명인데 눈으로만 투명해 보인다. 그래도 괜찮다 — `prepare.py` 가
-테두리에서 flood fill 로 배경만 지운다. 단색 흰 배경도 마찬가지로 처리된다.
-
----
-
-## 2. 앉아서 쉬는 포즈 (90% 초과용)
-
-**1번 결과 이미지를 레퍼런스로 첨부하고** 이걸 쓴다. 첨부해야 같은 캐릭터가 나온다.
-
-```
-The exact same messenger-sticker puppy from the reference image — same
-hand-drawn thick brown outlines, same tan fur, same dark patch, same cream
-belly, same red collar with gold studs, same floppy ears, same chibi
-proportions, same flat colours.
-
-Now draw it SITTING DOWN and worn out, full side profile facing RIGHT: sitting
-back on its haunches, front legs straight and propping it up, head drooping a
-little, tongue lolling far out of its open mouth, eyes closed in happy
-exhaustion, ears hanging flat and limp. Tired from running but still cheerful
-and cute.
-
-One character, centered, same size as in the reference. Transparent background,
-no ground, no shadow, no scenery, no text, no watermark.
-```
-
----
-
-## 3. 그래도 프레임이 흔들리면
-
-시트가 고르지 않게 나오면, 1번 결과에서 **가장 잘 나온 한 프레임**을 골라
-레퍼런스로 첨부하고 포즈만 바꿔가며 한 장씩 받는다:
-
-```
-The exact same messenger-sticker dog character from the reference image — same
-style, same colours, same hand-drawn outlines, same collar, same patch,
-same floppy ears, same tongue.
-
-Same full side profile facing RIGHT, same size, same position in frame.
-Running on all four legs. Change ONLY the legs, ears and tail: <포즈>
-
-Transparent background, no ground, no shadow, no text, no watermark.
-```
-
-`<포즈>` 자리에 하나씩:
-
-1. `front legs reaching far forward and back legs stretched far back, all four paws off the ground, body stretched long`
-2. `front paws touching down, back legs swinging forward under the belly`
-3. `front legs planted on the ground, back legs gathered under the body, back arched`
-4. `back paws planted, body pushing forward over them, front legs lifting off`
-5. `pushing off powerfully, body rising, front legs reaching forward`
-6. `all four legs tucked under the body, airborne at the top of the bounce, body compressed and round`
-
-## 넘기기 전 체크
-
-| | |
+| 장수 | 결과 |
 |---|---|
-| 배경 | 투명이거나 완전히 균일한 단색. 그라데이션 배경이면 키잉이 지저분해진다 |
-| 크기 | 가로 최소 1800px (6프레임 시트 기준). 잘라서 프레임당 300px |
-| 위치 | 프레임마다 강아지가 같은 높이·같은 크기. 이게 어긋나면 제자리에서 덜덜 떤다 |
-| 방향 | 전부 **오른쪽** 바라보기. 한 장이라도 반대면 그 프레임만 튄다 |
-| 글자 | 중국어·한국어 글자가 같이 나오는 경우가 많다. 없어야 한다 |
-| 워터마크 | 없어야 한다. 공개 레포에 들어간다 |
+| 2장 | 벌림 ↔ 오므림. 최소한이지만 확실히 달려 보인다 |
+| **4장** | **권장.** 부드럽고 그릴 양도 적다 |
+| 6~8장 | 더 부드럽지만 캐릭터 드리프트 위험이 커진다 |
 
-받으면 `assets/dog/` 에 넣지 말고 **원본 그대로 주면 된다** — 자르기·배경 제거·리사이즈는
-내가 하고, 규격에 맞춰 `run-1.png` … `run-6.png`, `stand.png` 로 정리한다.
+---
 
-## 참고 — 네 발 측면이 은유와 맞는 이유
+## 공통 준비
 
-앱은 강아지가 **트랙 위를 달린 거리**로 사용량을 말한다. 완전 측면으로 달리는 네 발
-캐릭터는 그 은유를 가장 직접적으로 보여준다 — 왼쪽에서 출발해 오른쪽 결승선(한도)으로
-가는 그림이 그대로 성립한다. 정면을 보는 포즈였다면 트랙 위를 달릴 수 없어서 강아지가
-숫자 옆 장식이 됐을 것이다.
+**`assets/dog/run-1.png` 을 레퍼런스로 첨부한다.** 네 번 다 같은 파일을 첨부해야
+같은 강아지가 나온다. 매번 직전 결과를 첨부하면 변형이 조금씩 누적된다.
+
+각 프롬프트는 이 머리말로 시작한다:
+
+```
+The exact same cartoon puppy as the attached reference image. Identical
+character, identical art style: same hand-drawn thick dark-brown outlines, same
+tan-brown fur, same darker patch on the head, same cream belly, same red collar
+with gold studs, same droopy muzzle, same sleepy half-closed eyes, same floppy
+ears. Same side view, facing RIGHT. Same size, same proportions.
+
+Draw it running, in this exact pose:
+```
+
+아래 포즈 중 하나를 이어 붙이고, 마지막에 이 마무리를 붙인다:
+
+```
+Keep the head, body and face exactly as in the reference — change ONLY the legs,
+arms, ears and tail.
+
+Transparent background, no ground, no shadow, no scenery, no text, no Chinese or
+Korean characters, no watermark, no border. One character, centered, same size
+as the reference.
+```
+
+---
+
+## 포즈 4종
+
+### 1 · 최대 벌림 (왼쪽 앞)
+
+```
+MID-STRIDE AT FULL EXTENSION. The left leg is thrown far FORWARD, knee high and
+the paw reaching out well in front of the chest. The right leg is kicked far
+BACKWARD behind the body, fully straightened. The gap between the two paws is as
+wide as the dog's entire body. Both paws are OFF the ground — the dog is
+airborne. The left arm swings back, the right arm swings forward. Ears flying
+upward from the speed, tail streaming out behind.
+```
+
+### 2 · 지나감 (다리 모음)
+
+```
+LEGS PASSING EACH OTHER. Both legs are directly UNDER the body and close
+together, almost touching, one just landing and the other swinging through. The
+dog is at its most compact and lowest — crouched slightly, body compressed.
+Arms close to the sides. Ears dropping down, tail low.
+```
+
+### 3 · 최대 벌림 (오른쪽 앞)
+
+```
+MID-STRIDE AT FULL EXTENSION, the MIRROR of the first pose. Now the RIGHT leg is
+thrown far FORWARD, knee high and paw reaching out in front of the chest, and
+the LEFT leg is kicked far BACKWARD behind the body, fully straightened. Paws as
+far apart as the dog's whole body. Both paws OFF the ground. The right arm
+swings back, the left arm swings forward. Ears flying upward, tail streaming.
+```
+
+### 4 · 공중에서 모음
+
+```
+AIRBORNE AND TUCKED. Both legs are gathered up tightly under the belly, knees
+bent, paws tucked close to the body. The dog is at the TOP of its bounce, lifted
+highest off the ground, body rounded and compact. Arms tucked in. Ears lifted by
+the upward motion, tail curled up.
+```
+
+---
+
+## 지친 포즈 (90% 초과용)
+
+```
+The exact same cartoon puppy as the attached reference image — identical
+character and art style.
+
+Now draw it STANDING STILL and worn out: slumped, head drooping, tongue lolling
+out of its mouth, eyes closed in exhaustion, ears hanging flat and limp, arms
+hanging at its sides. Tired from running but still cute.
+
+Same side view facing RIGHT, same size as the reference. Transparent background,
+no ground, no shadow, no text, no watermark.
+```
+
+---
+
+## 받고 나서
+
+네 장을 나란히 놓고 **다리만** 본다. 1번과 3번이 활짝 벌어지고 2번과 4번이 오므려져
+있어야 한다. 넷이 비슷하면 그 장만 다시 뽑는다 — 개별 생성이라 한 장만 다시 돌리면 된다.
+
+가공은 스크립트가 한다. 파일명은 상관없고, **준 순서가 곧 재생 순서**다:
+
+```sh
+python3 assets/dog/prepare.py --frames 1.png 2.png 3.png 4.png --stand tired.png
+./setup.sh
+```
+
+배경 제거(체커보드가 그려져 나와도 처리된다), 정렬, 정지 포즈 스케일 맞춤, 파일명
+정리까지 한 번에 한다.
+
+## 규격
+
+| 항목 | 값 | 이유 |
+|---|---|---|
+| 배경 | 투명이 최선, 단색 흰색도 괜찮다 | 스크립트가 테두리에서 flood fill 로 지운다 |
+| 크기 | 한 장당 가로 500px 이상 | 줄여 쓰는 건 괜찮지만 늘리면 뭉개진다 |
+| 방향 | 전부 **오른쪽** 바라보기 | 한 장이라도 반대면 그 프레임만 튄다 |
+| 글자 | 없어야 한다 | 중국어·한국어가 딸려 나오는 경우가 흔하다 |
+| 워터마크 | 없어야 한다 | 공개 레포에 들어간다 |
+
+## 부록 — 시트로 한 번 더 시도하고 싶다면
+
+개별 생성이 번거로우면 시트를 다시 노려볼 수는 있다. 다만 칸마다 다리 위치를 문장으로
+못 박아야 하고, 그래도 실패할 수 있다. `--sheet` 로 넘기면 스크립트가 격자를 찾아 자른다:
+
+```sh
+python3 assets/dog/prepare.py --sheet sheet.png --stand tired.png
+```
