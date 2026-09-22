@@ -233,10 +233,12 @@ enum DogArt {
     /// as a fresh one would say the opposite of what the pose says.
     static func strideDuration(_ mood: DogMood) -> TimeInterval {
         switch mood {
-        case .energetic: return 0.85
-        case .steady:    return 1.10
-        case .tired:     return 1.60
-        case .spent:     return 3.00   // breathing, not running
+        // Spread wide on purpose. A sprint and a trudge have to be told apart at a
+        // glance, and 0.85 vs 1.10 was a difference nobody could see.
+        case .energetic: return 0.50   // sprint
+        case .steady:    return 0.85
+        case .tired:     return 1.70   // trudging
+        case .spent:     return 0      // stopped -- it is sitting down
         }
     }
 
@@ -341,9 +343,53 @@ enum DogArt {
     private static var frameCache: [String: [NSImage]] = [:]
     static let frameCount = 10
 
+    /// Frames supplied as image files, if the bundle has any.
+    ///
+    /// Drawing the dog in code was a way to have a dog at all, not a commitment to
+    /// drawing it forever -- and character art is a taste problem that a coordinate
+    /// nudge is a bad tool for. A file anyone can replace beats a bezier path only
+    /// its author can argue with, so if `Resources/dog/<mood>-1.png` exists it wins
+    /// and the drawn version becomes the fallback for when it doesn't.
+    ///
+    /// Frames are numbered from 1 and read until one is missing, so dropping in four
+    /// files or twenty-four needs no code change. A mood with a single file simply
+    /// doesn't animate.
+    private static func numberedFrames(_ directory: URL, _ stem: String) -> [NSImage] {
+        var images: [NSImage] = []
+        var index = 1
+        while let image = NSImage(contentsOf: directory.appendingPathComponent("\(stem)-\(index).png")) {
+            images.append(image)
+            index += 1
+        }
+        return images
+    }
+
+    private static func bundledFrames(for mood: DogMood) -> [NSImage]? {
+        guard let directory = Bundle.main.resourceURL?.appendingPathComponent("dog") else { return nil }
+
+        // Per-mood art wins when it exists: a tired dog that also *looks* tired says
+        // more than a fresh one played slowly.
+        let perMood = numberedFrames(directory, "\(mood)")
+        if !perMood.isEmpty { return perMood }
+
+        // Otherwise one shared run cycle, and the mood only changes how fast it plays.
+        // This is the cheap option deliberately -- seven drawings instead of
+        // twenty-four, and speed alone already separates a sprint from a trudge.
+        if mood == .spent, let standing = NSImage(contentsOf: directory.appendingPathComponent("stand.png")) {
+            return [standing]
+        }
+        let shared = numberedFrames(directory, "run")
+        return shared.isEmpty ? nil : shared
+    }
+
     static func frames(mood: DogMood, size: NSSize) -> [NSImage] {
         let key = "\(mood)-\(Int(size.width.rounded()))x\(Int(size.height.rounded()))"
         if let cached = frameCache[key] { return cached }
+
+        if let supplied = bundledFrames(for: mood) {
+            frameCache[key] = supplied
+            return supplied
+        }
         let built = (0..<frameCount).map { index -> NSImage in
             let image = NSImage(size: size, flipped: false) { rect in
                 draw(mood: mood, in: rect, phase: CGFloat(index) / CGFloat(frameCount))
@@ -355,6 +401,11 @@ enum DogArt {
         frameCache[key] = built
         return built
     }
+
+    /// Whether the art is coming from files rather than from `draw`. Callers that
+    /// composite the dog onto something (the notification attachment) need to know,
+    /// because supplied art already carries its own margins.
+    static var usesSuppliedArt: Bool { bundledFrames(for: .steady) != nil }
 
     static func image(mood: DogMood, height: CGFloat, phase: CGFloat = 0) -> NSImage {
         let size = NSSize(width: (box.width / box.height) * height, height: height)

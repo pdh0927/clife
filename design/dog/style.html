@@ -1,0 +1,150 @@
+<!-- @dsCard group="Dog" name="스타일 후보 3안" subtitle="실루엣은 B 고정 · 색·선·표정만 비교" -->
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>강아지 스타일 후보</title>
+<style>
+  :root {
+    --paper:#FBF7F2; --muted:#8A7D73; --line:#E8DFD5; --ink:#3A2E27;
+    /* 현재 팔레트 */
+    --a-ink:#3A2E27; --a-fur:#F0D2AC; --a-dark:#D8A874; --a-collar:#D97757; --a-tag:#E8B84B;
+    /* 레퍼런스 팔레트: 진한 갈색 · 아주 어두운 윤곽 · 크림 배 */
+    --b-ink:#4A2C1C; --b-fur:#C08A61; --b-dark:#8A5537; --b-belly:#F0DCAE;
+    --b-collar:#D2453A; --b-stud:#EFC24E; --b-nose:#3A2118;
+    --b-patch:#A06B47; --b-muzzle:#CE9B72;
+  }
+  body { margin:0; padding:32px; background:var(--paper); color:var(--ink);
+         font:14px/1.55 -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+  h1 { font-size:18px; margin:0 0 4px; }
+  h2 { font-size:15px; margin:30px 0 6px; }
+  .lede { color:var(--muted); margin:0 0 24px; max-width:60ch; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:18px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:16px; }
+  .stage { display:block; width:100%; height:auto; }
+  .name { font-weight:600; margin:10px 0 2px; font-size:14px; }
+  .why { color:var(--muted); font-size:12px; margin:0 0 10px; }
+  .small { display:flex; gap:14px; align-items:flex-end; padding-top:10px; border-top:1px dashed var(--line); }
+  .small > span { font-size:10px; color:var(--muted); }
+</style>
+
+<h1>강아지 스타일 후보</h1>
+<p class="lede">
+  실루엣(B·비글)은 그대로 두고 <strong>색·선 굵기·무늬·표정</strong>만 바꾼다. 레퍼런스의 인상은
+  형태보다 이 넷에서 나온다 — 진한 갈색, 검정에 가까운 두꺼운 갈색 윤곽, 눈 주변 무늬와 크림색 배,
+  그리고 <em>눈썹</em>. 눈썹 하나가 “동물 그림”과 “표정 있는 캐릭터”를 가른다.
+</p>
+
+<div class="grid">
+
+  <!-- S1: 현재 -->
+  <div class="card">
+    <svg class="stage" viewBox="0 0 116 84" id="s1">
+      <g stroke-linecap="round" stroke-linejoin="round">
+        <g stroke="var(--a-ink)" stroke-width="6.5" fill="none">
+          <line x1="26" y1="54" x2="14" y2="72"/><line x1="38" y1="56" x2="28" y2="76"/>
+          <line x1="52" y1="56" x2="64" y2="76"/><line x1="62" y1="54" x2="78" y2="70"/>
+        </g>
+        <path d="M18 38 Q4 30 6 14" stroke="var(--a-dark)" stroke-width="7" fill="none"/>
+        <ellipse cx="42" cy="40" rx="24" ry="15" fill="var(--a-fur)" stroke="var(--a-ink)" stroke-width="3"/>
+        <path d="M34 28 Q37 40 35 50" stroke="var(--a-collar)" stroke-width="6" fill="none"/>
+        <circle cx="74" cy="28" r="17" fill="var(--a-fur)" stroke="var(--a-ink)" stroke-width="3"/>
+        <path d="M68 13 Q52 8 50 26 Q58 38 70 30 Z" fill="var(--a-dark)" stroke="var(--a-ink)" stroke-width="3"/>
+        <ellipse cx="94" cy="34" rx="12" ry="8.5" fill="var(--a-fur)" stroke="var(--a-ink)" stroke-width="3"/>
+        <circle cx="101" cy="31" r="3.4" fill="var(--a-ink)"/>
+        <path d="M79 23 q4 -4 8 0" stroke="var(--a-ink)" stroke-width="3" fill="none"/>
+        <circle cx="35.5" cy="52" r="3.6" fill="var(--a-tag)" stroke="var(--a-ink)" stroke-width="2"/>
+      </g>
+    </svg>
+    <p class="name">S1 · 현재</p>
+    <p class="why">옅은 베이지 + 얇은 윤곽. 무늬도 표정도 없다.</p>
+    <div class="small"><span>46pt</span><span class="slot" data-src="s1" data-h="46"></span><span>32pt</span><span class="slot" data-src="s1" data-h="32"></span></div>
+  </div>
+
+  <!-- S2: 레퍼런스 스타일 이식 -->
+  <div class="card">
+    <svg class="stage" viewBox="0 0 116 84" id="s2">
+      <g stroke-linecap="round" stroke-linejoin="round">
+        <g stroke="var(--b-ink)" stroke-width="8" fill="none">
+          <line x1="26" y1="54" x2="14" y2="72"/><line x1="38" y1="56" x2="28" y2="76"/>
+          <line x1="52" y1="56" x2="64" y2="76"/><line x1="62" y1="54" x2="78" y2="70"/>
+        </g>
+        <path d="M18 38 Q4 30 6 14" stroke="var(--b-dark)" stroke-width="8.5" fill="none"/>
+        <ellipse cx="42" cy="40" rx="24" ry="15" fill="var(--b-fur)" stroke="var(--b-ink)" stroke-width="4"/>
+        <!-- 크림색 배: 몸통 아래쪽에 겹쳐 얹는다 -->
+        <path d="M22 46 Q42 62 62 46 Q42 54 22 46 Z" fill="var(--b-belly)"/>
+        <ellipse cx="42" cy="40" rx="24" ry="15" fill="none" stroke="var(--b-ink)" stroke-width="4"/>
+        <!-- 목줄 + 스터드 -->
+        <path d="M33 27 Q36.5 40 34 51" stroke="var(--b-collar)" stroke-width="8" fill="none"/>
+        <circle cx="34.6" cy="33" r="1.5" fill="var(--b-stud)"/><circle cx="35.6" cy="40" r="1.5" fill="var(--b-stud)"/>
+        <circle cx="35" cy="47" r="1.5" fill="var(--b-stud)"/>
+        <circle cx="74" cy="28" r="18" fill="var(--b-fur)" stroke="var(--b-ink)" stroke-width="4"/>
+        <!-- 눈 주변 무늬: 캐릭터의 신분증 -->
+        <ellipse cx="84" cy="20" rx="9" ry="10" fill="var(--b-dark)" transform="rotate(18 84 20)"/>
+        <path d="M68 12 Q50 8 49 27 Q58 40 71 30 Z" fill="var(--b-dark)" stroke="var(--b-ink)" stroke-width="4"/>
+        <ellipse cx="95" cy="35" rx="13" ry="9.5" fill="var(--b-fur)" stroke="var(--b-ink)" stroke-width="4"/>
+        <ellipse cx="102" cy="31" rx="4" ry="3.4" fill="var(--b-nose)"/>
+        <!-- 눈 + 눈썹 -->
+        <circle cx="84" cy="22" r="3.4" fill="var(--b-ink)"/>
+        <path d="M78 13 q5 -3 10 0" stroke="var(--b-ink)" stroke-width="3" fill="none"/>
+      </g>
+    </svg>
+    <p class="name">S2 · 레퍼런스 스타일</p>
+    <p class="why">진한 갈색 · 윤곽 4pt · 눈 무늬 · 크림 배 · 스터드 목줄 · 눈썹.</p>
+    <div class="small"><span>46pt</span><span class="slot" data-src="s2" data-h="46"></span><span>32pt</span><span class="slot" data-src="s2" data-h="32"></span></div>
+  </div>
+
+  <!-- S3: 정면 2족 마스코트 -->
+  <div class="card">
+    <svg class="stage" viewBox="0 0 116 84" id="s3">
+      <g stroke-linecap="round" stroke-linejoin="round">
+        <!-- 다리 -->
+        <path d="M48 66 q-3 8 3 10 h8 q5 -3 2 -10 Z" fill="var(--b-fur)" stroke="var(--b-ink)" stroke-width="4"/>
+        <path d="M64 66 q-3 8 3 10 h8 q5 -3 2 -10 Z" fill="var(--b-fur)" stroke="var(--b-ink)" stroke-width="4"/>
+        <!-- 몸통 -->
+        <path d="M46 44 q-4 22 6 24 h20 q10 -2 6 -24 Z" fill="var(--b-fur)" stroke="var(--b-ink)" stroke-width="4"/>
+        <path d="M52 50 q-3 14 4 16 h10 q7 -2 4 -16 Z" fill="var(--b-belly)"/>
+        <!-- 팔 -->
+        <path d="M46 50 q-11 -2 -14 6 q4 5 9 1" fill="var(--b-fur)" stroke="var(--b-ink)" stroke-width="4"/>
+        <path d="M78 50 q10 2 12 9" fill="none" stroke="var(--b-ink)" stroke-width="7"/>
+        <!-- 목줄 -->
+        <path d="M46 44 q16 7 32 0" stroke="var(--b-collar)" stroke-width="7" fill="none"/>
+        <circle cx="54" cy="46.5" r="1.5" fill="var(--b-stud)"/><circle cx="62" cy="47.6" r="1.5" fill="var(--b-stud)"/>
+        <circle cx="70" cy="46.5" r="1.5" fill="var(--b-stud)"/>
+        <!-- 머리 -->
+        <circle cx="62" cy="26" r="21" fill="var(--b-fur)" stroke="var(--b-ink)" stroke-width="4"/>
+        <!-- 무늬는 눈보다 밝게. 레퍼런스에서 눈이 무늬 안에서도 보이는 건 명도차 덕이다 -->
+        <ellipse cx="74" cy="20" rx="8.5" ry="10.5" fill="var(--b-patch)" transform="rotate(20 74 20)"/>
+        <path d="M42 16 Q29 20 31 34 Q39 43 48 30 Z" fill="var(--b-dark)" stroke="var(--b-ink)" stroke-width="4"/>
+        <ellipse cx="60" cy="34" rx="13.5" ry="9" fill="var(--b-muzzle)" stroke="var(--b-ink)" stroke-width="4"/>
+        <ellipse cx="55" cy="31" rx="4.4" ry="3.6" fill="var(--b-nose)"/>
+        <!-- 입: 주둥이 아래 짧은 선 하나가 표정을 완성한다 -->
+        <path d="M60 38 q4 4 8 0" stroke="var(--b-ink)" stroke-width="2.6" fill="none"/>
+        <circle cx="56" cy="21" r="3.4" fill="var(--b-ink)"/><circle cx="74" cy="22" r="3.4" fill="var(--b-ink)"/>
+        <circle cx="57.2" cy="19.8" r="1.1" fill="#fff"/><circle cx="75.2" cy="20.8" r="1.1" fill="#fff"/>
+        <!-- 눈썹: 짧고 기울어야 표정이 된다. 크고 둥글면 그냥 털이다 -->
+        <path d="M52 14 l7 2" stroke="var(--b-ink)" stroke-width="2.8" fill="none"/>
+        <path d="M78 15 l-7 2" stroke="var(--b-ink)" stroke-width="2.8" fill="none"/>
+      </g>
+    </svg>
+    <p class="name">S3 · 정면 2족 마스코트</p>
+    <p class="why">레퍼런스에 가장 가깝다. 다만 <strong>달리기 은유를 포기</strong>해야 한다 — 옆모습이 아니면 트랙을 달릴 수 없다.</p>
+    <div class="small"><span>46pt</span><span class="slot" data-src="s3" data-h="46"></span><span>32pt</span><span class="slot" data-src="s3" data-h="32"></span></div>
+  </div>
+</div>
+
+<h2>트레이드오프</h2>
+<p class="lede">
+  S3가 레퍼런스에 제일 가깝지만, 정면 캐릭터는 트랙 위를 달릴 수 없다. 지금 설계의 핵심은
+  <strong>위치가 곧 사용량</strong>이라는 것이고, 그걸 버리면 강아지는 숫자 옆의 장식이 된다.
+  S2는 은유를 지키면서 레퍼런스의 인상(색·선·무늬·표정)만 가져온다.
+</p>
+
+<script>
+  for (const slot of document.querySelectorAll('.slot')) {
+    const src = document.getElementById(slot.dataset.src);
+    const clone = src.cloneNode(true);
+    clone.removeAttribute('id'); clone.removeAttribute('class');
+    clone.setAttribute('height', slot.dataset.h);
+    clone.setAttribute('width', slot.dataset.h * 116 / 84);
+    slot.replaceWith(clone);
+  }
+</script>

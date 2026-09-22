@@ -24,6 +24,11 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$DIR/Info.plist" "$APP/Contents/Info.plist"
 cp "$DIR/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 
+# Supplied dog art, if there is any. The app falls back to drawing the dog when
+# this directory is absent, so an empty assets/ is a valid state rather than a
+# broken build.
+[ -d "$DIR/assets/dog" ] && cp -R "$DIR/assets/dog" "$APP/Contents/Resources/dog"
+
 swiftc -O \
   -o "$APP/Contents/MacOS/Clife" \
   "$DIR/src/main.swift" "$DIR/src/dog.swift" "$DIR/src/widget.swift"

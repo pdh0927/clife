@@ -578,7 +578,51 @@ final class DogHeaderView: NSView {
     private func drawDog() {
         let rect = dogRect
         let frames = DogArt.frames(mood: hasData ? mood : .steady, size: rect.size)
-        frames[min(frameIndex, frames.count - 1)].draw(in: rect)
+        let image = frames[min(frameIndex, frames.count - 1)]
+        // Inset so the tilt and bounce below stay inside the rect that gets
+        // invalidated each frame -- otherwise the corners clip as it leans.
+        let target = DogHeaderView.fit(image.size, into: rect.insetBy(dx: 4, dy: 4))
+
+        // Supplied art gets a bounce and a tilt laid over it.
+        //
+        // The frames that came back from image generation have almost no stride in
+        // them -- the paws travel 10px across a 263px canvas, under 4% -- so played
+        // back on their own the dog just hovers. Motion that is not in the frames
+        // cannot be recovered from them, but a body that rises, falls and leans is
+        // what reads as running at this size anyway, and that part is arithmetic.
+        // Real leg swing still needs frames that actually contain it.
+        guard DogArt.usesSuppliedArt, DogArt.strideDuration(mood) > 0, frames.count > 1 else {
+            image.draw(in: target)
+            return
+        }
+
+        let phase = CGFloat(frameIndex) / CGFloat(frames.count)
+        let bounce = sin(phase * 2 * .pi)          // one rise and fall per stride
+        let lean = sin(phase * 2 * .pi + .pi / 2)  // leans into the rise, a quarter ahead
+
+        NSGraphicsContext.saveGraphicsState()
+        let transform = NSAffineTransform()
+        transform.translateX(by: target.midX, yBy: target.minY + target.height * 0.22)
+        transform.rotate(byDegrees: lean * 3.0)
+        transform.translateX(by: -target.midX, yBy: -(target.minY + target.height * 0.22))
+        transform.translateX(by: 0, yBy: bounce * 2.2)
+        transform.concat()
+        image.draw(in: target)
+        NSGraphicsContext.restoreGraphicsState()
+    }
+
+    /// Largest rect of `size`'s aspect ratio that fits inside `rect`, centred.
+    ///
+    /// `NSImage.draw(in:)` stretches to fill, which squashes supplied art — the frames
+    /// are portrait and the space for them is landscape. The drawn fallback is
+    /// generated at exactly the requested size, so this is a no-op there and only
+    /// matters once image files are in play.
+    static func fit(_ size: NSSize, into rect: NSRect) -> NSRect {
+        guard size.width > 0, size.height > 0 else { return rect }
+        let scale = min(rect.width / size.width, rect.height / size.height)
+        let drawn = NSSize(width: size.width * scale, height: size.height * scale)
+        return NSRect(x: rect.midX - drawn.width / 2, y: rect.midY - drawn.height / 2,
+                      width: drawn.width, height: drawn.height)
     }
 
     /// Flipped by the menu toggle. Static because both the menu's header and the
@@ -591,6 +635,9 @@ final class DogHeaderView: NSView {
 
     func startAnimating() {
         guard animation == nil, Self.animationEnabled else { return }
+        // A stride of zero means this pose does not run -- the dog has sat down. No
+        // timer at all is the honest way to say that, and it costs nothing.
+        guard DogArt.strideDuration(mood) > 0 else { frameIndex = 0; needsDisplay = true; return }
         // Interval comes from how long the whole stride should take, so a tired dog
         // genuinely runs slower rather than just looking different.
         // Capped: past about 12fps the extra frames cost battery without reading as
@@ -1232,7 +1279,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if !FileManager.default.fileExists(atPath: url.path) {
             let size = NSSize(width: 256, height: 208)
             let image = NSImage(size: size, flipped: false) { rect in
-                DogArt.draw(mood: mood, in: rect.insetBy(dx: 18, dy: 18))
+                // Supplied art brings its own margins; the drawn version needs some
+                // added or it touches the edges of the notification thumbnail.
+                if let frame = DogArt.frames(mood: mood, size: size).first, DogArt.usesSuppliedArt {
+                    frame.draw(in: DogHeaderView.fit(frame.size, into: rect.insetBy(dx: 10, dy: 10)))
+                } else {
+                    DogArt.draw(mood: mood, in: rect.insetBy(dx: 18, dy: 18))
+                }
                 return true
             }
             guard let tiff = image.tiffRepresentation,
