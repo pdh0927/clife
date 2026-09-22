@@ -8,8 +8,9 @@
 한 이미지 안에 여러 칸을 요구하면 모델은 그걸 "애니메이션"이 아니라 **"같은 캐릭터를
 여러 번"** 으로 해석한다. 칸마다 다리 위치를 문장으로 못 박아도 이 경향은 잘 안 꺾인다.
 
-**그래서 한 번에 한 포즈씩 뽑는다.** 한 장에 한 자세만 그리게 하면 다른 자세가 나올
-수밖에 없다. 캐릭터 일관성은 기존 그림을 레퍼런스로 첨부해서 잡는다.
+고칠 점은 두 가지다. **"하나의 연속 동작"이 아니라 "서로 다른 네 개의 동작"으로 서술할 것**,
+그리고 **기존 그림을 레퍼런스로 첨부할 것** — 캐릭터가 고정되면 모델은 포즈만 바꾸면 된다.
+첫 시도에는 둘 다 없었다.
 
 ## 몇 장이 필요한가
 
@@ -24,37 +25,65 @@
 
 ---
 
-## 공통 준비
+## 먼저 이걸 시도한다 — 한 번에 4장 (레퍼런스 첨부)
 
-**`assets/dog/run-1.png` 을 레퍼런스로 첨부한다.** 네 번 다 같은 파일을 첨부해야
-같은 강아지가 나온다. 매번 직전 결과를 첨부하면 변형이 조금씩 누적된다.
-
-각 프롬프트는 이 머리말로 시작한다:
-
-```
-The exact same cartoon puppy as the attached reference image. Identical
-character, identical art style: same hand-drawn thick dark-brown outlines, same
-tan-brown fur, same darker patch on the head, same cream belly, same red collar
-with gold studs, same droopy muzzle, same sleepy half-closed eyes, same floppy
-ears. Same side view, facing RIGHT. Same size, same proportions.
-
-Draw it running, in this exact pose:
-```
-
-아래 포즈 중 하나를 이어 붙이고, 마지막에 이 마무리를 붙인다:
+**`assets/dog/run-1.png` 을 레퍼런스로 첨부하고** 아래를 통째로 넣는다. 캐릭터가 고정돼
+있으니 모델은 포즈만 바꾸면 되고, 네 칸을 **연속된 한 동작이 아니라 서로 다른 네 개의
+동작**으로 서술한 것이 첫 시도와의 차이다.
 
 ```
-Keep the head, body and face exactly as in the reference — change ONLY the legs,
-arms, ears and tail.
+Using the attached image as the character reference, draw a sprite sheet of
+FOUR completely different poses of that exact same puppy, in ONE horizontal row,
+evenly spaced, left to right.
 
-Transparent background, no ground, no shadow, no scenery, no text, no Chinese or
-Korean characters, no watermark, no border. One character, centered, same size
-as the reference.
+Keep the character identical to the reference in all four: same hand-drawn thick
+dark-brown outlines, same tan-brown fur, same darker patch on the head, same
+cream belly, same red collar with gold studs, same droopy muzzle, same sleepy
+half-closed eyes, same floppy ears, same flat colours, same side view facing
+RIGHT, same size.
+
+These are FOUR DIFFERENT ACTIONS, not four copies of one pose. Every cell must
+have a clearly different silhouette. Do NOT repeat a pose.
+
+Cell 1 — LEAPING FORWARD. One leg thrown far out in front, the other kicked far
+out behind, fully straightened. The distance between the two paws is as wide as
+the dog's whole body. Both paws off the ground.
+
+Cell 2 — CROUCHING LOW. Both legs directly under the body and close together,
+almost touching. The dog is squatting, compressed, at its lowest point, body
+low to the ground.
+
+Cell 3 — LEAPING FORWARD THE OTHER WAY. The mirror of cell 1: the opposite leg
+thrown far out in front and the other kicked far out behind. Paws as far apart
+as the dog's whole body. Both paws off the ground.
+
+Cell 4 — CURLED UP IN MID-AIR. Both legs tucked up tightly under the belly,
+knees bent, paws pulled in close. The dog is a round ball high off the ground.
+
+Also vary the ears and tail between cells: flying up in cells 1 and 3, dropping
+in cell 2, lifted in cell 4.
+
+Transparent background — real alpha transparency, NOT a drawn checkerboard
+pattern. No ground, no shadow, no scenery, no text, no Chinese or Korean
+characters, no watermark, no borders, no numbers, no grid lines. All four cells
+the same size, the dog the same size and at the same height in each.
 ```
+
+**받으면 다리만 본다.** 1·3번이 활짝 벌어지고 2·4번이 오므려져 있으면 성공이다.
+네 칸이 비슷하면 두세 번 더 돌려본다 — 시트 재생성은 싸다.
+
+그래도 계속 비슷하게만 나오면 아래 개별 생성으로 간다. 느리지만 **구조적으로 실패할 수
+없는** 방법이다.
+
+```sh
+python3 assets/dog/prepare.py --sheet sheet.png --stand tired.png
+```
+
+가공 후 스크립트가 보폭을 재서 알려준다. `⚠️ 다리가 거의 안 움직인다` 가 뜨면 다시 뽑는다.
 
 ---
 
-## 포즈 4종
+## 안 되면 — 한 장에 한 포즈씩
 
 ### 1 · 최대 벌림 (왼쪽 앞)
 
@@ -137,12 +166,3 @@ python3 assets/dog/prepare.py --frames 1.png 2.png 3.png 4.png --stand tired.png
 | 방향 | 전부 **오른쪽** 바라보기 | 한 장이라도 반대면 그 프레임만 튄다 |
 | 글자 | 없어야 한다 | 중국어·한국어가 딸려 나오는 경우가 흔하다 |
 | 워터마크 | 없어야 한다 | 공개 레포에 들어간다 |
-
-## 부록 — 시트로 한 번 더 시도하고 싶다면
-
-개별 생성이 번거로우면 시트를 다시 노려볼 수는 있다. 다만 칸마다 다리 위치를 문장으로
-못 박아야 하고, 그래도 실패할 수 있다. `--sheet` 로 넘기면 스크립트가 격자를 찾아 자른다:
-
-```sh
-python3 assets/dog/prepare.py --sheet sheet.png --stand tired.png
-```
