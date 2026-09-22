@@ -35,11 +35,14 @@ The priority is not subtle: **if someone is looking, fetch; save the budget for 
 
 | Trigger | Condition |
 |---|---|
-| **Pointer enters the menu bar** | after 0.3s of dwell, then **immediately** (past cache and backoff) |
+| **Pointer enters the menu bar** | after 0.3s of dwell, then **immediately** (past cache and backoff), 15s floor |
+| **A window covering the widget moves away** | **immediately** (past cache and backoff), 15s floor |
 | Dropdown opens | **immediately** (past cache and backoff) |
-| "Refresh" menu item | **immediately** (past cache and backoff) |
+| "Refresh" menu item · Raycast hotkey | **immediately** (past cache and backoff) |
 | Wake from sleep | immediately |
 | Timer (idle) | 10 minutes, and takes a cached response under 30s old |
+
+The widget has **no poll of its own.** The moment the desktop is revealed is the moment someone is reading it, and that is the only moment it is worth a request. While it is covered it costs neither requests nor frames.
 
 On-demand fetches have only a five-second floor. A pointer wandering in and out of the menu bar crosses the band several times a second, and that is mouse travel, not a question. Any real look is further apart than that, so in practice **looking at the rings always fetches**.
 
@@ -107,11 +110,21 @@ pkill -f Clife.app/Contents/MacOS/Clife
 rm -r -f /Applications/Clife.app
 ```
 
-The app leaves `~/Library/Preferences/com.example.clife.plist` (display mode, widget state, widget position) and `~/Library/Caches/com.example.clife/` (the last response, plus the dog art attached to notifications). Delete the directory to be rid of both. If you're upgrading from v1, also delete the `# >>> clife` … `# <<< clife` block in `~/.claude/statusline.sh` and `~/.claude/usage-status.json` — the new version uses neither.
+The app leaves `~/Library/Preferences/com.example.clife.plist` (which surfaces are on, menu bar shape, dog style, widget position) and `~/Library/Caches/com.example.clife/` (the last response). Delete the directory to be rid of both. If you're upgrading from v1, also delete the `# >>> clife` … `# <<< clife` block in `~/.claude/statusline.sh` and `~/.claude/usage-status.json` — the new version uses neither.
 
-## Display mode
+## Where it shows up
 
-The dropdown offers "icon" and "text" (e.g. `54%/29%`, which is what the first prototype looked like). The choice is persisted across launches. Icon is the default.
+Three ways to reach the same numbers, each switchable under dropdown → **설정** (Settings). Choices are persisted across launches.
+
+| Surface | Default | With it off |
+|---|---|---|
+| Menu bar icon | on | gone from the menu bar. The app keeps running and keeps notifying |
+| Desktop widget | off | — |
+| Hotkey · script | always | not switchable. The Raycast script works independently of the app |
+
+**Turning both off is refused.** Switching the menu bar icon off summons the widget; closing the widget brings the icon back. With nothing on screen there would be no way back to the settings either. With the icon hidden, **right-click the widget** to open the same menu.
+
+The icon itself is either "icon" (the dual ring) or "text" (`54%/29%`, which is what the first prototype looked like). Icon is the default.
 
 ## Raycast hotkey (optional)
 
@@ -144,7 +157,23 @@ Numbers alone leave "is that fine?" for the reader to work out, every time, from
 | 70–90% | tongue out, eyes drooping | 조금 지쳐가요… |
 | 90%+ | sits down short of the line | 잠깐 쉬어야 할 것 같아요 |
 
-The dog at the top of the dropdown speaks for **whichever limit is closest to stopping you**, not the first one. Three dogs would make you pick which to believe, which is the opposite of glanceable. The other rows just mark their position with a paw print.
+The dog at the top of the dropdown speaks for **the 5-hour session limit** alone. Three dogs would make you pick which to believe, which is the opposite of glanceable. The other rows just mark their position with a paw print.
+
+It used to be bound to **whichever limit was highest**, on the reasoning that the tightest cap is the one that will stop you. Hour to hour that says the wrong thing. The weekly caps move slowly and spend most of a week high, so the dog arrives exhausted on a Thursday morning when the session it is actually running has barely started — and then stays exhausted, saying nothing about the only window you can do anything about today. The session resets every five hours, so tying the character to it makes the run mean a run. The weekly caps still have their own rows, still notify, and still colour the inner ring. They just don't get to speak for the dog.
+
+### Illustration vs line
+
+Settings → **강아지** picks between them.
+
+| | Illustration (default) | Line |
+|---|---|---|
+| Source | the PNGs in `assets/dog/` | outlines drawn in code |
+| Frames | 4, a 300px bitmap scaled to 60pt | 4, rasterised at exactly the size shown |
+| CPU (widget open, Retina) | **8.6%** | **1.0%** |
+
+Line mode is more than eight times cheaper. The difference is resampling, not frame count: illustration frames are scaled down on every tick, while line frames are baked once at the size they will be shown and blitted 1:1 after that. The colour follows `labelColor`, so it adapts to dark mode — at the cost of throwing the cache away when the theme changes.
+
+Outlines alone came out as a wireframe: legs visible through the body, the ear crossing the head. An opaque fill is what normally solves that, but there is no colour to fill with — the menu behind is translucent. So each shape is **punched out** of what has already been drawn: the same effect as filling with the backdrop, with the frame still transparent.
 
 The art comes from the PNGs in `assets/dog/`; with that folder empty the app falls back to drawing the dog in code. `assets/dog/README.md` covers how to drop in new art, `assets/dog/PROMPTS.md` the generation prompts. What follows describes the fallback. The silhouette is the one candidate out of five in `design/dog/variants.html` still legible as a dog at 46pt — a hanging ear and a muzzle outside the head circle are the two features that survive being shrunk. The art is `design/dog/states.html` ported into `src/dog.swift`. The SVG there is deliberately restricted to ellipses, round-capped strokes and quadratic curves — each with a direct `NSBezierPath` equivalent — so the two cannot quietly drift apart. A hand port is exactly the kind of work that compiles cleanly while drawing the wrong thing, so the means to look at it ships too:
 
@@ -152,33 +181,53 @@ The art comes from the PNGs in `assets/dog/`; with that folder empty the app fal
 ./Clife.app/Contents/MacOS/Clife --dogsheet /tmp/dog.png
 ```
 
-That writes the four moods across six stride frames, plus the assembled dropdown layout, as PNGs. Custom views inside an `NSMenuItem` cannot be captured while running — the menu closes the moment you try — so rendering the same views offscreen is the only way to see what was actually built.
+That writes the four moods across six stride frames, **filled and line side by side**, plus the assembled dropdown layout, as PNGs. The line version is the same pose data with the fills taken out, so the only way to know it still reads as a dog is to look at it next to the one that does. Custom views inside an `NSMenuItem` cannot be captured while running — the menu closes the moment you try — so rendering the same views offscreen is the only way to see what was actually built.
 
 ### Running
 
 The dog actually runs: two keyed frames (extended and gathered) blended with an ease, the body bouncing with the stride, dust puffing behind the rear paw and fading. No sprite sheet, because a sheet is one more thing to keep in step every time a pose is retouched. Cadence is per mood, so a tired dog genuinely runs slower.
 
-**It only runs while it can be seen.** The menu's dog animates while the menu is open; the widget's while the widget is up. Close either and the timer goes away and the app returns to 0% idle.
+**It only runs while it can be seen.** The menu's dog animates while the menu is open; the widget's while the widget is **uncovered**. Otherwise there is no timer at all and the app returns to 0% idle.
 
-The cost was measured. It started at **3.6%** of a core — every frame redrew the whole view, labels included, and re-stroked twenty-odd paths. Three fixes brought it to **1.0%**:
+| State | CPU |
+|---|---|
+| Widget covered by a window | **0.0%** |
+| Widget visible, line mode | 1.0% |
+| Widget visible, illustration mode | 8.6% |
+
+Coverage is answered by the window server directly: `CGWindowListCopyWindowInfo` for the windows ordered above this one, then a rect intersection. It is asked on app activation, space changes, and the pointer arriving over the widget — never on a timer.
+
+`occlusionState` was tried first and does not work. macOS keeps reporting a desktop-level window as visible no matter what is stacked on top of it, so the check saved nothing — and then one day reported the opposite and stopped the animation for good, with nothing in the UI to say why. Asking the window server a fact beat asking the window how it felt.
+
+The drawing itself was tuned once too. It started at **3.6%** of a core — every frame redrew the whole view, labels included. Three fixes:
 
 1. **Invalidate only the dog's rect** — the bubble and two text fields have no reason to redraw each frame
 2. **Rasterise one stride once** — the drawing is identical every cycle, so after the first pass a frame is a bitmap blit
 3. **Cap the frame rate at 12fps** — past that, at this size, it costs battery without reading as smoother
 
-Of that 1.0%, the animation itself accounts for 0.2% (measured with the widget open). If you'd still rather have it back, turn off **강아지 달리기** in the dropdown.
+If you'd still rather have it back, turn off **달리기** or switch to **선으로 간단히** in the settings.
+
+Hiding the menu bar icon also stops the global mouse monitor. It exists to prefetch when the pointer reaches the icon; with no icon there, it is a callback firing on every mouse move to do nothing.
 
 ## Desktop widget
 
-Dropdown → **바탕화면 위젯**. The same dog and the same limits, parked on the desktop. Drag to move it; the position is saved, and it comes back on next launch if it was open.
+Settings → **바탕화면 위젯**. The same dog and the same limits, parked on the desktop. Like Weather or Reminders it sits **above the desktop icons** and slides under any real window.
 
-It is **not** a WidgetKit extension. That would need a second bundle, real provisioning and a notarised parent app, and this project signs ad-hoc on purpose (see `build.sh`) — an unsigned widget extension simply never loads. A borderless `NSPanel` pinned to the desktop window level reaches the same place: visible when the desktop is, covered when something is over it, with no signing story at all.
+Two ways to move it: drag, or pick one of four corners under Settings → **위젯 위치**. Both are saved and restored on next launch. The corner presets exist because a desktop-level window is the hardest kind to grab — anything on top of it takes the click, so "just drag it" can be advice you cannot follow. The corner is on whichever screen the pointer is on.
+
+It is **not** a WidgetKit extension. That would need a second bundle, real provisioning and a notarised parent app, and this project signs ad-hoc on purpose (see `build.sh`) — an unsigned widget extension simply never loads. A borderless `NSPanel` pinned just above the desktop *icon* level reaches the same place, with no signing story at all. One level above the desktop picture is not enough: Finder draws the icons in their own window above that one, and a widget with a folder on top of it is a widget you cannot read.
+
+Right-click opens the same menu the status item uses — which is also the way back to the settings with the menu bar icon hidden.
 
 The content reuses the dropdown's own views. Two copies would drift the first time either was touched, and then the widget and the menu would disagree about the same numbers, which is worse than having no widget.
 
 ## Notifications
 
-Each limit fires a desktop notification the first time it crosses 30%, 50%, 60%, 70%, 80%, 90%, and 95%. The same dog delivers it, in the same mood — a bare `주간 · Fable 50%` leaves you to judge whether that is good news inside a banner that is already sliding away, whereas the art lands the tone before the text is read. One per threshold per window; a window reset lets them fire again. Thresholds already passed when the app starts are marked as fired silently — otherwise launching at 80% would fire all three at once.
+Each limit fires a desktop notification the first time it crosses 30%, 50%, 60%, 70%, 80%, 90%, and 95%. The app icon on the left of the banner is that dog — a bare `주간 · Fable 50%` leaves you to judge whether that is good news inside a banner that is already sliding away, so the body text is worded in the dog's voice and the tone arrives with it.
+
+The mood art was attached on the right for a while, and has been dropped: it put the same character in one notification twice, at two sizes, with the attachment redoing what the icon already did.
+
+One per threshold per window; a window reset lets them fire again. Thresholds already passed when the app starts are marked as fired silently — otherwise launching at 80% would fire all three at once.
 
 ## Design notes
 

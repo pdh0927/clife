@@ -10,8 +10,8 @@ Execution model: `.claude/rules/execution-model.md`.
 | 경로 | 역할 |
 |---|---|
 | `src/main.swift` | API 클라이언트, 응답 캐시, 상태 아이템, 드롭다운, 알림, 진단 플래그. 대부분이 여기 |
-| `src/dog.swift` | 강아지 일러스트(포즈 데이터 + Core Graphics 그리기). UI 로직 없음 |
-| `src/widget.swift` | 바탕화면 패널. 드롭다운의 뷰를 **재사용**하고 다시 만들지 않는다 |
+| `src/dog.swift` | 강아지 일러스트(포즈 데이터 + Core Graphics 그리기), `DogStyle`. UI 로직 없음 |
+| `src/widget.swift` | 바탕화면 패널, 가림 판정, 모서리 배치. 드롭다운의 뷰를 **재사용**하고 다시 만들지 않는다 |
 | `raycast/claude-usage.py` | Raycast 스크립트 커맨드. 앱과 캐시 파일을 공유 |
 | `design/` | 시안(SVG/HTML)과 `implementation/`(빌드된 앱에서 뽑은 실물 렌더) |
 | `build.sh` / `setup.sh` | 빌드(swiftc 직접 호출) / 빌드+`/Applications` 설치 |
@@ -28,8 +28,12 @@ Execution model: `.claude/rules/execution-model.md`.
 - **`assert` 대신 `precondition`.** `build.sh`가 `-O`로 빌드해서 `assert`는
   통째로 제거된다. 셀프테스트가 조용히 아무것도 검사하지 않게 된다.
 - 로직을 고치면 `--selftest`에 회귀 케이스를 남긴다. 프레임워크는 쓰지 않는다.
-- **같은 것을 두 번 그리지 않는다.** 위젯과 드롭다운은 한 뷰를 공유한다. 두 벌이
-  되는 순간 같은 숫자를 다르게 말하기 시작한다.
+- **같은 것을 두 번 그리지 않는다.** 위젯과 드롭다운은 한 뷰를 공유하고, 강아지가
+  어느 한도를 대변하는지도 `limits.dogBinding` 한 곳에서만 정한다. 두 벌이 되는
+  순간 같은 숫자를 다르게 말하기 시작한다.
+- **화면에 나오는 것을 끌 수 있게 만들면 돌아올 길을 같이 만든다.** 메뉴바 아이콘과
+  위젯을 둘 다 끄면 설정에 도달할 방법이 없어진다 — 그래서 한쪽을 끄면 다른 쪽이
+  켜진다. 위젯 우클릭이 그 복구 경로다.
 - README는 한국어가 기본이고 `README.en.md`가 대응본이다. **한쪽만 고치지 않는다.**
 - 동작을 바꿨으면 README의 해당 문단도 같이 고친다. 이 프로젝트의 README는 기능
   목록이 아니라 *왜 그렇게 했는지*의 기록이라, 코드와 어긋나면 그냥 틀린 글이 된다.
@@ -83,7 +87,16 @@ Execution model: `.claude/rules/execution-model.md`.
 - **macOS에 `timeout(1)`이 없다.** 백그라운드 로거가 통째로 안 돌았다.
 - 오프스크린 뷰 렌더는 `appearance`를 명시하고 `cacheDisplay` **뒤에** 배경을
   합성해야 한다. 안 그러면 "라벨이 안 그려진다"고 오진한다.
-- `occlusionState`는 데스크톱 레벨 창에 안 먹는다(가려져도 visible로 보고).
+- `occlusionState`는 데스크톱 레벨 창에 안 먹는다(가려져도 visible로 보고). 가림
+  판정은 `CGWindowListCopyWindowInfo(.optionOnScreenAboveWindow)` 로 직접 묻는다.
+  **자기 프로세스의 창(메뉴·툴팁)은 걸러야 한다** — 안 그러면 메뉴를 여는 순간
+  위젯이 가려졌다고 판정한다.
+- **CPU를 잴 땐 어느 디스플레이에 떠 있는지 확인한다.** 같은 위젯이 1x 외장에서
+  2.9%, 레티나에서 8.6%였다. 픽셀이 4배니 당연한데, 모르고 비교하면 없는 회귀를
+  만들어낸다.
+- **"바탕화면이 드러났다"를 앱 활성화만으로 잡으면 새는 경우가 있다.** F11 같은
+  경로는 활성화도 스페이스 전환도 일으키지 않는다. 마우스가 위젯 위로 들어오는
+  것을 세 번째 신호로 함께 쓴다.
 
 **일러스트 작업 규칙 (비싸게 배움)**
 
@@ -94,3 +107,8 @@ Execution model: `.claude/rules/execution-model.md`.
 
 `design/`의 SVG는 도형을 원·타원·둥근 선·2차 곡선으로 제한한다. `NSBezierPath`에
 1:1 대응해야 시안과 구현이 조용히 갈라지지 않는다.
+
+**선화는 채우기를 빼는 것만으로 되지 않는다.** 외곽선만 그으면 와이어프레임이 된다
+— 다리가 몸통을 뚫고 귀가 머리를 가로지른다. 채울 색이 없으면(반투명 배경 위)
+`compositingOperation = .destinationOut` 으로 모양을 파낸다. 그리고 `labelColor`로
+그린 프레임은 캐시에 구워지므로 테마가 바뀔 때 반드시 버려야 한다.

@@ -41,6 +41,18 @@ enum DogMood {
     }
 }
 
+/// How the dog is drawn. A preference, persisted, because the two have genuinely
+/// different costs and not everyone wants to pay the higher one to look at a dog.
+enum DogStyle: String {
+    /// The supplied PNG frames -- full colour, and the character the app is built
+    /// around. Each frame is a ~300px bitmap scaled down to ~60pt on every tick.
+    case illustration
+    /// Stroke-only, drawn in code at exactly the size it will be shown, so a frame
+    /// is a 1:1 blit with no resampling. Fewer frames too. Measurably cheaper, and
+    /// the silhouette is the part that was doing the work at this size anyway.
+    case line
+}
+
 /// The dog, drawn in code.
 ///
 /// Ported from `design/dog/states.html`, which exists so the poses can be judged
@@ -225,6 +237,29 @@ enum DogArt {
         stroke(path, ink, outline)
     }
 
+    /// Fill-then-outline, or outline alone in line mode.
+    ///
+    /// Line art cannot use `ink`: it is a fixed dark brown that vanishes against a
+    /// dark menu. `labelColor` follows the system instead -- at the cost of being
+    /// baked into the frame cache, which is why `flushCache` exists.
+    ///
+    /// It also still needs occlusion. Outlines alone came out as a wireframe: legs
+    /// visible through the body, the ear crossing the head, four shapes fighting over
+    /// the same silhouette. An opaque fill is what normally solves that, but there is
+    /// no colour to fill with -- the menu behind is translucent and themed. So the
+    /// shape is punched out of what has already been drawn instead. Same effect as
+    /// filling with the backdrop, and the frame stays transparent.
+    private static func shape(_ path: NSBezierPath, _ fill: NSColor,
+                              lineArt: Bool, width: CGFloat = 3) {
+        guard lineArt else { filled(path, fill, outline: width); return }
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current?.compositingOperation = .destinationOut
+        NSColor.black.setFill()
+        path.fill()
+        NSGraphicsContext.restoreGraphicsState()
+        stroke(path, .labelColor, width * 0.75)
+    }
+
     private static func lerp(_ a: CGPoint, _ b: CGPoint, _ t: CGFloat) -> CGPoint {
         CGPoint(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t)
     }
@@ -252,9 +287,10 @@ enum DogArt {
     /// `phase` runs 0..<1 through one stride. At 0 the drawing is identical to the
     /// static art, so nothing depends on being animated -- the notification PNG and
     /// the offscreen sheets pass nothing and get the pose that was designed.
-    static func draw(mood: DogMood, in rect: NSRect, phase: CGFloat = 0) {
+    static func draw(mood: DogMood, in rect: NSRect, phase: CGFloat = 0, lineArt: Bool = false) {
         guard let context = NSGraphicsContext.current else { return }
         var p = pose(for: mood)
+        let ink = lineArt ? NSColor.labelColor : self.ink
 
         // Eased back and forth rather than sawtooth: a leg that snaps back to the
         // start of the stride reads as a glitch, not a gait.
@@ -287,41 +323,47 @@ enum DogArt {
         for (a, b) in p.legs {
             let leg = NSBezierPath()
             leg.move(to: a); leg.line(to: b)
-            stroke(leg, ink, 6.5)
+            stroke(leg, ink, lineArt ? 4.5 : 6.5)
         }
-        stroke(quad(p.tail.from, p.tail.control, p.tail.to), furDark, 7)
+        stroke(quad(p.tail.from, p.tail.control, p.tail.to), lineArt ? ink : furDark,
+               lineArt ? 4.5 : 7)
 
-        filled(oval(p.bodyCenter, p.bodyRadii), fur)
-        filled(oval(p.headCenter, CGSize(width: 17, height: 17)), fur)
+        shape(oval(p.bodyCenter, p.bodyRadii), fur, lineArt: lineArt)
+        shape(oval(p.headCenter, CGSize(width: 17, height: 17)), fur, lineArt: lineArt)
 
         let ear = NSBezierPath()
         ear.move(to: p.ear.root)
         ear.curve(to: p.ear.mid, controlPoint1: p.ear.c1, controlPoint2: p.ear.c1)
         ear.curve(to: p.ear.back, controlPoint1: p.ear.c2, controlPoint2: p.ear.c2)
         ear.close()
-        filled(ear, furDark, outline: 3)
+        shape(ear, furDark, lineArt: lineArt)
 
-        filled(oval(p.muzzleCenter, CGSize(width: 12, height: 8.5)), fur)
+        shape(oval(p.muzzleCenter, CGSize(width: 12, height: 8.5)), fur, lineArt: lineArt)
+        // The nose and the eye stay solid even in line mode -- a hollow dot at this
+        // size reads as a hole in the face rather than as a feature.
         ink.setFill()
         oval(p.noseCenter, CGSize(width: 3.4, height: 3.4)).fill()
 
         if let arc = p.eyeArc { stroke(quad(arc.from, arc.control, arc.to), ink, 3) }
         if let dot = p.eyeDot { ink.setFill(); oval(dot, CGSize(width: 3, height: 3)).fill() }
-        if let t = p.tongue { stroke(quad(t.from, t.control, t.to), collar, 5) }
+        if let t = p.tongue { stroke(quad(t.from, t.control, t.to), lineArt ? ink : collar, 5) }
 
-        stroke(quad(p.collar.from, p.collar.control, p.collar.to), collar, 6)
+        stroke(quad(p.collar.from, p.collar.control, p.collar.to), lineArt ? ink : collar,
+               lineArt ? 4 : 6)
         let tagPath = oval(p.tagCenter, CGSize(width: 3.6, height: 3.6))
-        tag.setFill(); tagPath.fill(); stroke(tagPath, ink, 2)
+        if !lineArt { tag.setFill(); tagPath.fill() }
+        stroke(tagPath, ink, 2)
 
         for (center, radius) in p.sweat {
-            sweat.setFill()
-            oval(center, CGSize(width: radius, height: radius)).fill()
+            let drop = oval(center, CGSize(width: radius, height: radius))
+            if lineArt { stroke(drop, ink, 1.6) } else { sweat.setFill(); drop.fill() }
         }
 
         // Dust behind the rear paw. Two puffs offset in the cycle so there is always
         // one forming and one fading, which is what makes the ground feel like it is
-        // being pushed against rather than hovered over.
-        if p.kicksDust, let rear = p.legs.first {
+        // being pushed against rather than hovered over. Skipped in line mode: a
+        // translucent blob is the one thing an outline drawing cannot say.
+        if p.kicksDust, !lineArt, let rear = p.legs.first {
             for offset in [CGFloat(0), 0.5] {
                 let life = (phase + offset).truncatingRemainder(dividingBy: 1)
                 let radius = 2.6 + life * 6.5
@@ -345,6 +387,22 @@ enum DogArt {
     /// sub-pixel resize would quietly do the expensive thing forever.
     private static var frameCache: [String: [NSImage]] = [:]
     static let frameCount = 10
+
+    /// Line mode runs on four. The stride timer divides the stride by the frame
+    /// count, so fewer frames is directly fewer ticks per second -- which is the
+    /// point of the mode, and four keys is plenty for a silhouette.
+    static let lineFrameCount = 4
+
+    /// Which drawing the app is currently using. Set from the saved preference at
+    /// launch and by the menu; the cache is keyed on it, so both can coexist.
+    static var style: DogStyle = .illustration {
+        didSet { if style != oldValue { flushCache() } }
+    }
+
+    /// Line art is stroked in `labelColor`, which is resolved when the frame is
+    /// rasterised and then frozen into the bitmap. Nothing redraws it on its own, so
+    /// a light/dark switch would otherwise leave a black dog on a black menu.
+    static func flushCache() { frameCache.removeAll() }
 
     /// Frames supplied as image files, if the bundle has any.
     ///
@@ -386,16 +444,18 @@ enum DogArt {
     }
 
     static func frames(mood: DogMood, size: NSSize) -> [NSImage] {
-        let key = "\(mood)-\(Int(size.width.rounded()))x\(Int(size.height.rounded()))"
+        let key = "\(style)-\(mood)-\(Int(size.width.rounded()))x\(Int(size.height.rounded()))"
         if let cached = frameCache[key] { return cached }
 
-        if let supplied = bundledFrames(for: mood) {
+        if style == .illustration, let supplied = bundledFrames(for: mood) {
             frameCache[key] = supplied
             return supplied
         }
-        let built = (0..<frameCount).map { index -> NSImage in
+        let lineArt = style == .line
+        let count = lineArt ? lineFrameCount : frameCount
+        let built = (0..<count).map { index -> NSImage in
             let image = NSImage(size: size, flipped: false) { rect in
-                draw(mood: mood, in: rect, phase: CGFloat(index) / CGFloat(frameCount))
+                draw(mood: mood, in: rect, phase: CGFloat(index) / CGFloat(count), lineArt: lineArt)
                 return true
             }
             image.isTemplate = false
@@ -406,9 +466,9 @@ enum DogArt {
     }
 
     /// Whether the art is coming from files rather than from `draw`. Callers that
-    /// composite the dog onto something (the notification attachment) need to know,
-    /// because supplied art already carries its own margins.
-    static var usesSuppliedArt: Bool { bundledFrames(for: .steady) != nil }
+    /// composite the dog onto something need to know, because supplied art brings
+    /// its own margins -- and because only it needs the bounce laid over the top.
+    static var usesSuppliedArt: Bool { style == .illustration && bundledFrames(for: .steady) != nil }
 
     static func image(mood: DogMood, height: CGFloat, phase: CGFloat = 0) -> NSImage {
         let size = NSSize(width: (box.width / box.height) * height, height: height)

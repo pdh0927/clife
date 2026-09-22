@@ -25,6 +25,8 @@ struct UsageLimit {
         [kind, scopeModel, scopeSurface].compactMap { $0 }.joined(separator: ":")
     }
 
+    var isSession: Bool { group == "session" }
+
     var title: String {
         switch kind {
         case "session":       return "5시간 한도"
@@ -32,6 +34,24 @@ struct UsageLimit {
         case "weekly_scoped": return "주간 · \(scopeModel ?? "모델별")"
         default:              return scopeModel.map { "\(kind) · \($0)" } ?? kind
         }
+    }
+}
+
+extension Array where Element == UsageLimit {
+    /// The limit the dog runs on: the current 5-hour session.
+    ///
+    /// It used to be whichever limit was highest, on the reasoning that the tightest
+    /// cap is the one that will stop you. That reads wrong hour to hour. The weekly
+    /// caps move slowly and spend most of a week high, so the dog would arrive
+    /// exhausted on a Thursday morning when the session it is actually running has
+    /// barely started -- and then stay exhausted, saying nothing about the only
+    /// window the user can do anything about today. The session resets every five
+    /// hours, so tying the character to it makes the run mean a run.
+    ///
+    /// The weekly caps are still on their own rows, still notify, and still colour
+    /// the inner ring. They just don't get to speak for the dog.
+    var dogBinding: UsageLimit? {
+        first { $0.isSession } ?? self.max { $0.percent < $1.percent }
     }
 }
 
@@ -375,7 +395,8 @@ enum IconFactory {
 /// the dropdown, and gets a longer floor.
 enum RefreshTrigger: String {
     case launch, menuBar, menuOpen, manual, timer, wake
-
+    /// The desktop was revealed and the widget is now readable.
+    case widget
 }
 
 // MARK: - Display mode
@@ -704,6 +725,8 @@ final class DogHeaderView: NSView {
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private static let displayModeDefaultsKey = "displayMode"
     private static let runningDefaultsKey = "dogRunning"
+    private static let menuBarDefaultsKey = "menuBarVisible"
+    private static let dogStyleDefaultsKey = "dogStyle"
 
     /// Background cadence -- and deliberately slow, because the background poll is the
     /// least valuable request the app makes.
@@ -761,9 +784,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var rowItems: [NSMenuItem] = []
     private var statusMenuItem: NSMenuItem!
     private var widgetItem: NSMenuItem!
+    private var menuBarItem: NSMenuItem!
     private var runningItem: NSMenuItem!
     private var iconModeMenuItem: NSMenuItem!
     private var textModeMenuItem: NSMenuItem!
+    private var dogStyleItems: [DogStyle: NSMenuItem] = [:]
     private var pollTimer: Timer?
     private var stalenessTimer: Timer?
     private var hoverWork: DispatchWorkItem?
@@ -803,6 +828,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
            let mode = DisplayMode(rawValue: saved) {
             displayMode = mode
         }
+        DogArt.style = dogStyle
+
+        // Line art is stroked in `labelColor` and then frozen into a cached bitmap,
+        // so a light/dark switch has to throw those away or the dog turns invisible.
+        DistributedNotificationCenter.default().addObserver(
+            forName: Notification.Name("AppleInterfaceThemeChangedNotification"),
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            DogArt.flushCache()
+            self?.render()
+        }
 
         let menu = NSMenu()
         menu.delegate = self
@@ -827,34 +863,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(statusMenuItem)
 
         menu.addItem(NSMenuItem.separator())
-        menu.addItem(Self.headerMenuItem("표시 방식"))
-        iconModeMenuItem = NSMenuItem(title: "아이콘으로 보기", action: #selector(selectDisplayMode(_:)), keyEquivalent: "")
-        iconModeMenuItem.target = self
-        iconModeMenuItem.tag = 0
-        textModeMenuItem = NSMenuItem(title: "숫자로 보기", action: #selector(selectDisplayMode(_:)), keyEquivalent: "")
-        textModeMenuItem.target = self
-        textModeMenuItem.tag = 1
-        menu.addItem(iconModeMenuItem)
-        menu.addItem(textModeMenuItem)
-        updateModeMenuState()
-
-        menu.addItem(NSMenuItem.separator())
-        runningItem = NSMenuItem(title: "강아지 달리기", action: #selector(toggleRunning), keyEquivalent: "")
-        runningItem.target = self
-        runningItem.state = dogRunning ? .on : .off
-        menu.addItem(runningItem)
-
-        widgetItem = NSMenuItem(title: "바탕화면 위젯", action: #selector(toggleWidget), keyEquivalent: "")
-        widgetItem.target = self
-        menu.addItem(widgetItem)
+        let settings = NSMenuItem(title: "설정", action: nil, keyEquivalent: "")
+        settings.submenu = buildSettingsMenu()
+        menu.addItem(settings)
 
         menu.addItem(NSMenuItem.separator())
         let refreshItem = NSMenuItem(title: "새로 고침", action: #selector(refresh), keyEquivalent: "")
         refreshItem.target = self
         menu.addItem(refreshItem)
         menu.addItem(NSMenuItem.separator())
-        menu.addItem(NSMenuItem(title: "종료", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        let quitItem = NSMenuItem(title: "종료", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        quitItem.target = NSApp
+        menu.addItem(quitItem)
         statusItem.menu = menu
+        // Also the widget's right-click menu, so every setting -- including the one
+        // that brings the menu bar icon back -- stays reachable with the icon hidden.
+        desktopWidget.contextMenu = menu
 
         // Show the last known numbers before the first request even goes out. Without
         // this, launching during a rate-limit cooldown means a "no data" question mark
@@ -866,11 +890,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         DogHeaderView.animationEnabled = dogRunning
+        // Uncovering the widget is the widget's version of hovering the menu bar --
+        // the moment someone is actually reading it, and the only moment it is worth
+        // a request. Nothing polls on its behalf.
+        desktopWidget.onExposed = { [weak self] in self?.reloadOnDemand(.widget) }
         if desktopWidget.shouldRestore { desktopWidget.show() }
         widgetItem.state = desktopWidget.isVisible ? .on : .off
 
         render()
         startMenuBarWatch()
+        setMenuBarVisible(menuBarVisible)   // after the bands exist, so the watch can arm
         reload(trigger: .launch)
 
         let timer = Timer.scheduledTimer(withTimeInterval: Self.pollInterval, repeats: true) { [weak self] _ in
@@ -932,8 +961,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
         ) { [weak self] _ in self?.rebuildMenuBarBands() }
 
-        mouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged]) {
-            [weak self] _ in self?.pointerMoved(to: NSEvent.mouseLocation)
+        syncMenuBarWatch()
+    }
+
+    /// The global monitor runs only while some surface can use what it sees: the menu
+    /// bar icon, which prefetches when the pointer arrives, or the widget, which wants
+    /// to know when it is being looked at. With neither on screen it would be a
+    /// callback firing on every mouse move to reach two early returns.
+    private func syncMenuBarWatch() {
+        let wanted = menuBarVisible || desktopWidget.isVisible
+        if wanted, mouseMonitor == nil {
+            pointerInMenuBar = isInMenuBar(NSEvent.mouseLocation)
+            mouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged]) {
+                [weak self] _ in self?.pointerMoved(to: NSEvent.mouseLocation)
+            }
+        } else if !wanted, let monitor = mouseMonitor {
+            NSEvent.removeMonitor(monitor)
+            mouseMonitor = nil
+            hoverWork?.cancel()
+            hoverWork = nil
         }
     }
 
@@ -1021,6 +1067,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func pointerMoved(to point: NSPoint) {
+        desktopWidget.pointerMoved(to: point)
+        guard menuBarVisible else { return }
+
         let near = isNearTopEdge(point)
         guard near != pointerInMenuBar else { return }
         pointerInMenuBar = near
@@ -1064,7 +1113,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// asking), so the cost of trying is a round trip, and the cost of not trying is a
     /// stale number in front of someone who came to read it.
     private func reloadOnDemand(_ trigger: RefreshTrigger) {
-        let floor = trigger == .menuBar ? Self.hoverMinInterval : Self.onDemandMinInterval
+        // Hover and desktop reveal share the longer floor: both happen many times an
+        // hour on the way to something else, and neither is a click.
+        let floor = (trigger == .menuBar || trigger == .widget)
+            ? Self.hoverMinInterval : Self.onDemandMinInterval
         if let lastAttempt, Date().timeIntervalSince(lastAttempt) < floor { return }
         reload(force: true, trigger: trigger)
     }
@@ -1086,10 +1138,139 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func toggleWidget() {
         desktopWidget.toggle()
         widgetItem.state = desktopWidget.isVisible ? .on : .off
+        syncMenuBarWatch()
+        // Closing the widget with the icon already hidden would leave nothing on
+        // screen and no way back in. Bring the icon back rather than refusing.
+        if !desktopWidget.isVisible && !menuBarVisible { setMenuBarVisible(true) }
+    }
+
+    @objc private func moveWidget(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let corner = WidgetCorner(rawValue: raw) else { return }
+        if !desktopWidget.isVisible { toggleWidget() }   // asking where it goes implies wanting it
+        desktopWidget.move(to: corner)
+    }
+
+    /// Whether the status item is in the menu bar at all.
+    ///
+    /// Hiding it is a real option here in a way it isn't for most menu bar apps,
+    /// because this one has two other surfaces: the desktop widget and the Raycast
+    /// script. Someone who reads usage from a hotkey has no use for a permanent
+    /// twenty points of menu bar.
+    private var menuBarVisible: Bool {
+        get { UserDefaults.standard.object(forKey: Self.menuBarDefaultsKey) as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: Self.menuBarDefaultsKey) }
+    }
+
+    @objc private func toggleMenuBar() {
+        // Never both off: that is an app with no way to reach its own menu. Turning
+        // the icon off summons the widget instead of leaving an empty screen.
+        if menuBarVisible && !desktopWidget.isVisible { toggleWidget() }
+        setMenuBarVisible(!menuBarVisible)
+    }
+
+    private func setMenuBarVisible(_ visible: Bool) {
+        menuBarVisible = visible
+        menuBarItem.state = visible ? .on : .off
+        statusItem.isVisible = visible
+        // The mouse monitor exists only to prefetch when the pointer reaches the
+        // icon. With no icon there it is a callback running on every mouse move for
+        // nothing, which is exactly the kind of idle cost this app should not have.
+        syncMenuBarWatch()
+    }
+
+    /// Which drawing the dog uses. Persisted; `DogArt` flushes its frame cache when
+    /// this changes, so the switch is immediate.
+    private var dogStyle: DogStyle {
+        get {
+            UserDefaults.standard.string(forKey: Self.dogStyleDefaultsKey)
+                .flatMap(DogStyle.init(rawValue:)) ?? .illustration
+        }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: Self.dogStyleDefaultsKey) }
+    }
+
+    @objc private func selectDogStyle(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let style = DogStyle(rawValue: raw), style != DogArt.style else { return }
+        dogStyle = style
+        DogArt.style = style
+        updateDogStyleMenuState()
+        render()
+    }
+
+    private func updateDogStyleMenuState() {
+        for (style, item) in dogStyleItems { item.state = DogArt.style == style ? .on : .off }
     }
 
     @objc private func refresh() {
         reload(force: true, trigger: .manual)
+    }
+
+    /// Everything that is a preference, in one submenu.
+    ///
+    /// The top level stays short -- the dog, the numbers, refresh, quit -- because
+    /// that is what the menu is opened for. Settings are chosen once and then not
+    /// looked at again, and putting eight of them in the way of a glance would
+    /// undo the reason this is a menu bar app.
+    private func buildSettingsMenu() -> NSMenu {
+        let menu = NSMenu()
+        menu.addItem(Self.headerMenuItem("어디에 보일지"))
+        menuBarItem = NSMenuItem(title: "메뉴바 아이콘", action: #selector(toggleMenuBar), keyEquivalent: "")
+        menuBarItem.target = self
+        menuBarItem.state = menuBarVisible ? .on : .off
+        menu.addItem(menuBarItem)
+
+        widgetItem = NSMenuItem(title: "바탕화면 위젯", action: #selector(toggleWidget), keyEquivalent: "")
+        widgetItem.target = self
+        menu.addItem(widgetItem)
+
+        // Listed but not switchable, because it genuinely isn't ours to switch: the
+        // Raycast script reads the shared cache file and runs whether or not this app
+        // is even launched. Saying so beats leaving the third surface unmentioned and
+        // letting the list read as if there were only two.
+        menu.addItem(NSMenuItem(title: "단축키 · 스크립트 — 항상 켜짐", action: nil, keyEquivalent: ""))
+
+        let place = NSMenuItem(title: "위젯 위치", action: nil, keyEquivalent: "")
+        let corners = NSMenu()
+        for corner in WidgetCorner.allCases {
+            let item = NSMenuItem(title: corner.label, action: #selector(moveWidget(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = corner.rawValue
+            corners.addItem(item)
+        }
+        corners.addItem(NSMenuItem.separator())
+        corners.addItem(Self.headerMenuItem("드래그로도 옮길 수 있어요"))
+        place.submenu = corners
+        menu.addItem(place)
+
+        menu.addItem(NSMenuItem.separator())
+        menu.addItem(Self.headerMenuItem("메뉴바 모양"))
+        iconModeMenuItem = NSMenuItem(title: "아이콘으로 보기", action: #selector(selectDisplayMode(_:)), keyEquivalent: "")
+        iconModeMenuItem.target = self
+        iconModeMenuItem.tag = 0
+        textModeMenuItem = NSMenuItem(title: "숫자로 보기", action: #selector(selectDisplayMode(_:)), keyEquivalent: "")
+        textModeMenuItem.target = self
+        textModeMenuItem.tag = 1
+        menu.addItem(iconModeMenuItem)
+        menu.addItem(textModeMenuItem)
+        updateModeMenuState()
+
+        menu.addItem(NSMenuItem.separator())
+        menu.addItem(Self.headerMenuItem("강아지"))
+        for (style, title) in [(DogStyle.illustration, "그림"), (DogStyle.line, "선으로 간단히")] {
+            let item = NSMenuItem(title: title, action: #selector(selectDogStyle(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = style.rawValue
+            menu.addItem(item)
+            dogStyleItems[style] = item
+        }
+        runningItem = NSMenuItem(title: "달리기", action: #selector(toggleRunning), keyEquivalent: "")
+        runningItem.target = self
+        runningItem.state = dogRunning ? .on : .off
+        menu.addItem(runningItem)
+        updateDogStyleMenuState()
+
+        return menu
     }
 
     /// Small caps-style section label; unclickable (nil action) like the info rows above.
@@ -1223,10 +1404,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             var fired = firedThresholds[limit.id] ?? []
             for threshold in Self.notifyThresholds where limit.percent >= threshold && !fired.contains(threshold) {
                 fired.insert(threshold)
-                let mood = DogMood(percent: limit.percent)
                 notify(title: "\(limit.title)를 \(Int(threshold))% 썼어요",
-                       body: "\(mood.line) · \(Self.relativeReset(limit.resetsAt))",
-                       mood: mood)
+                       body: "\(DogMood(percent: limit.percent).line) · \(Self.relativeReset(limit.resetsAt))")
             }
             firedThresholds[limit.id] = fired
         }
@@ -1255,58 +1434,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     static func isSameWindowForTest(_ a: Date?, _ b: Date?) -> Bool { isSameWindow(a, b) }
 
-    /// The same dog delivers the news.
+    /// The dog delivers the news, but only as the app icon.
     ///
-    /// A bare "주간 · Fable 50%" leaves the reader to decide whether that is good or
-    /// bad, in a glance at a banner that is already sliding away. Attaching the mood
-    /// art means the tone lands before the text is even read, and it is the same
-    /// character they just saw in the menu rather than a second visual language.
-    private func notify(title: String, body: String, mood: DogMood) {
+    /// The mood art used to be attached as well, which put a second dog on the right
+    /// of the banner -- the same character twice in one notification, at two sizes,
+    /// for one piece of news. The icon already carries it, and the words already say
+    /// the mood, so the attachment was decoration competing with the thing it was
+    /// decorating. Its `line` still sets the tone of the body text.
+    private func notify(title: String, body: String) {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
         content.sound = .default
-        if let attachment = Self.moodAttachment(mood) { content.attachments = [attachment] }
         let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request)
-    }
-
-    /// Renders the mood art to a file UNNotification can attach.
-    ///
-    /// Rendered fresh each time, not cached: `UNNotificationAttachment` *moves* the
-    /// file into the notification store rather than copying it, so the path is empty
-    /// again by the time the next threshold comes around. The `fileExists` check below
-    /// costs nothing and covers the case where a request is built but never posted.
-    ///
-    /// Kept beside the usage cache so uninstalling takes the whole directory with it.
-    private static func moodAttachment(_ mood: DogMood) -> UNNotificationAttachment? {
-        let directory = UsageCache.url.deletingLastPathComponent().appendingPathComponent("mood")
-        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let url = directory.appendingPathComponent("\(mood).png")
-
-        if !FileManager.default.fileExists(atPath: url.path) {
-            let size = NSSize(width: 256, height: 208)
-            let image = NSImage(size: size, flipped: false) { rect in
-                // Supplied art brings its own margins; the drawn version needs some
-                // added or it touches the edges of the notification thumbnail.
-                if let frame = DogArt.frames(mood: mood, size: size).first, DogArt.usesSuppliedArt {
-                    frame.draw(in: DogHeaderView.fit(frame.size, into: rect.insetBy(dx: 10, dy: 10)))
-                } else {
-                    DogArt.draw(mood: mood, in: rect.insetBy(dx: 18, dy: 18))
-                }
-                return true
-            }
-            guard let tiff = image.tiffRepresentation,
-                  let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]),
-                  (try? png.write(to: url)) != nil
-            else { return nil }
-        }
-        return try? UNNotificationAttachment(identifier: "dog-\(mood)", url: url)
-    }
-
-    /// Test seam for `--testnotify`, which cannot reach a private member.
-    static func moodAttachmentForTest(_ mood: DogMood) -> UNNotificationAttachment? {
-        moodAttachment(mood)
     }
 
     /// Sets the button's image via a nil-then-set toggle instead of a direct
@@ -1329,10 +1470,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                                    subtitle: Self.relativeReset(limit.resetsAt))
         }
 
-        // The dog speaks for whichever limit is closest to stopping you -- the highest
-        // percentage, not the first row. Averaging or picking by order would make it
-        // cheerful right up until something you were not watching cut you off.
-        let binding = limits.max { $0.percent < $1.percent }
+        let binding = limits.dogBinding
         dogHeader.update(limit: binding, reset: Self.relativeReset(binding?.resetsAt))
 
         desktopWidget.update(limits: limits, status: statusText()) { Self.relativeReset($0) }
@@ -1475,6 +1613,13 @@ private func selfTest() -> Never {
     precondition(limits[2].title == "주간 · Fable")
     precondition(limits[2].id == "weekly_scoped:Fable")
 
+    // The dog runs on the session, not on whatever happens to be highest. A Thursday
+    // with the weekly cap at 90% and a fresh session must still show a fresh dog.
+    precondition(limits.dogBinding?.kind == "session", "\(String(describing: limits.dogBinding))")
+    let weeklyOnly = limits.filter { !$0.isSession }
+    precondition(weeklyOnly.dogBinding?.percent == 39, "no session row: fall back to the tightest")
+    precondition([UsageLimit]().dogBinding == nil)
+
     // Two scoped rows with no model name must not collapse onto one identity, or they
     // share a set of fired thresholds and one of them silently stops notifying.
     let scoped = try! UsageAPI.decode("""
@@ -1574,12 +1719,16 @@ private func dogSheet() -> Never {
     let path = CommandLine.arguments.last.map { ($0 as NSString).expandingTildeInPath }
         ?? "dogsheet.png"
     let moods: [DogMood] = [.energetic, .steady, .tired, .spent]
+    // Both drawn styles, side by side. The line version is not a different dog, it is
+    // the same pose data with the fills taken out -- so the only way to know it still
+    // reads as a dog is to look at it next to the one that does.
+    let columns = moods.map { ($0, false) } + moods.map { ($0, true) }
     // Six frames across one stride, so the gait can be judged as a sequence rather
     // than as four unrelated drawings. An animation that only looks right in motion
     // is an animation nobody can review.
     let phases: [CGFloat] = [0, 1.0/6, 2.0/6, 3.0/6, 4.0/6, 5.0/6]
     let cell = NSSize(width: 150, height: 122)
-    let size = NSSize(width: cell.width * CGFloat(moods.count),
+    let size = NSSize(width: cell.width * CGFloat(columns.count),
                       height: cell.height * CGFloat(phases.count))
 
     let image = NSImage(size: size, flipped: false) { _ in
@@ -1587,7 +1736,8 @@ private func dogSheet() -> Never {
         NSRect(origin: .zero, size: size).fill()
         for (row, phase) in phases.enumerated() {
         let yOffset = size.height - cell.height * CGFloat(row + 1)
-        for (index, mood) in moods.enumerated() {
+        for (index, column) in columns.enumerated() {
+            let (mood, lineArt) = column
             let x = cell.width * CGFloat(index)
             // A track under each, so the stance can be judged against the ground
             // it is supposed to be running on rather than floating in space.
@@ -1601,7 +1751,7 @@ private func dogSheet() -> Never {
 
             DogArt.draw(mood: mood,
                         in: NSRect(x: x + 24, y: yOffset + 24, width: 102, height: 84),
-                        phase: phase)
+                        phase: phase, lineArt: lineArt)
         }
         }
         return true
@@ -1676,20 +1826,16 @@ private let sampleLimits: [UsageLimit] = [
 ///
 /// The real ones only fire when usage crosses 30/50/60/70/80/90/95%, which is not
 /// something you can arrange while checking whether the banner looks right. This is
-/// the only way to see the app icon and the attached art without waiting for the
-/// account to cooperate.
+/// the only way to see what one looks like without waiting for the account to
+/// cooperate.
 private func testNotify() -> Never {
     let centre = UNUserNotificationCenter.current()
     centre.requestAuthorization(options: [.alert, .sound]) { granted, _ in
         guard granted else { print("알림 권한 없음 — 시스템 설정에서 허용 필요"); exit(1) }
-        let mood = DogMood(percent: 80)
         let content = UNMutableNotificationContent()
         content.title = "5시간 한도를 80% 썼어요"
-        content.body = "\(mood.line) · 1시간 5분 후 초기화"
+        content.body = "\(DogMood(percent: 80).line) · 1시간 5분 후 초기화"
         content.sound = .default
-        if let attachment = AppDelegate.moodAttachmentForTest(mood) {
-            content.attachments = [attachment]
-        }
         centre.add(UNNotificationRequest(identifier: UUID().uuidString,
                                          content: content, trigger: nil)) { error in
             print(error.map { "실패: \($0.localizedDescription)" } ?? "알림 전송됨")
