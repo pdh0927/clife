@@ -238,7 +238,10 @@ enum DogArt {
         case .energetic: return 0.50   // sprint
         case .steady:    return 0.85
         case .tired:     return 1.70   // trudging
-        case .spent:     return 0      // stopped -- it is sitting down
+        // Not zero: the dog has stopped running, but a completely frozen image reads
+        // as a broken app rather than a resting animal. Two sitting poses swapped
+        // this slowly is a shift of weight, not a run.
+        case .spent:     return 2.60
         }
     }
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """생성된 그림을 앱이 쓸 프레임으로 가공한다.
 
-    python3 assets/dog/prepare.py --frames a.png b.png c.png d.png --stand tired.png
-    python3 assets/dog/prepare.py --sheet sheet.png --stand tired.png
+    python3 assets/dog/prepare.py --frames run1.png run2.png --stand sit1.png sit2.png
+    python3 assets/dog/prepare.py --sheet sheet.png --stand sit.png
 
 `--frames` 가 기본이다. 준 순서가 곧 재생 순서다. 한 이미지 안에 여러 칸을 요구하면
 모델은 "애니메이션"이 아니라 "같은 캐릭터를 여러 번"으로 해석해서 거의 같은 포즈만
@@ -128,7 +128,8 @@ def main():
     src = ap.add_mutually_exclusive_group(required=True)
     src.add_argument("--frames", nargs="+", help="달리기 프레임들. 준 순서가 재생 순서")
     src.add_argument("--sheet", help="여러 칸이 든 스프라이트 시트 한 장")
-    ap.add_argument("--stand", required=True, help="정지/지친 포즈 한 장")
+    ap.add_argument("--stand", nargs="+", required=True,
+                    help="쉬는 포즈. 여러 장 주면 90%% 초과 구간에서 천천히 번갈아 나온다")
     args = ap.parse_args()
 
     if args.frames:
@@ -143,7 +144,7 @@ def main():
         cut = [tight(sheet.crop((x0, y0, x1, y1)))
                for (y0, y1) in rows for (x0, x1) in cols]
 
-    standing = dekey(args.stand)
+    resting = [tight(dekey(f)) for f in args.stand]
 
     width = max(f.width for f in cut) + PAD_TOP * 2
     height = max(f.height for f in cut) + PAD_TOP * 2
@@ -162,16 +163,31 @@ def main():
         (OUT / f"run-{extra}.png").unlink()
         extra += 1
 
-    scale = collar_width(cut[0]) / collar_width(standing)
-    stand = tight(standing)
-    stand = stand.resize((round(stand.width * scale), round(stand.height * scale)),
-                         Image.LANCZOS)
+    # 쉬는 포즈는 달리기와 같은 축척으로. 포즈가 달라도 목 둘레는 변하지 않으므로
+    # 목줄 폭이 기준이 된다. 바닥은 달리는 강아지의 발끝에 맞춰 공중에 뜨지 않게 한다.
     floor = np.where(np.array(placed[0])[:, :, 3] > 0)[0].max()
-    canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-    canvas.alpha_composite(stand, ((width - stand.width) // 2, max(0, floor - stand.height)))
-    canvas.save(OUT / "stand.png")
+    scales = []
+    for index, pose in enumerate(resting, start=1):
+        scale = collar_width(cut[0]) / collar_width(pose)
+        scales.append(scale)
+        sized = pose.resize((round(pose.width * scale), round(pose.height * scale)),
+                            Image.LANCZOS)
+        canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        canvas.alpha_composite(sized, ((width - sized.width) // 2,
+                                       max(0, floor - sized.height)))
+        # spent-*.png 는 무드 전용이라 공용 run 사이클보다 우선한다
+        canvas.save(OUT / f"spent-{index}.png")
 
-    print(f"저장: run-1..{len(cut)}.png, stand.png  (정지 포즈 배율 {scale:.3f})")
+    for leftover in ("stand.png",):
+        if (OUT / leftover).exists():
+            (OUT / leftover).unlink()
+    extra = len(resting) + 1
+    while (OUT / f"spent-{extra}.png").exists():
+        (OUT / f"spent-{extra}.png").unlink()
+        extra += 1
+
+    print(f"저장: run-1..{len(cut)}.png, spent-1..{len(resting)}.png"
+          f"  (쉬는 포즈 배율 {', '.join(f'{x:.3f}' for x in scales)})")
     stride_report(placed)
 
 
