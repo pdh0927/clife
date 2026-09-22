@@ -578,7 +578,7 @@ final class DogHeaderView: NSView {
     private func drawDog() {
         let rect = dogRect
         let frames = DogArt.frames(mood: hasData ? mood : .steady, size: rect.size)
-        let image = frames[min(frameIndex, frames.count - 1)]
+        let image = frames[frameIndex % frames.count]
         // Inset so the tilt and bounce below stay inside the rect that gets
         // invalidated each frame -- otherwise the corners clip as it leans.
         let target = DogHeaderView.fit(image.size, into: rect.insetBy(dx: 4, dy: 4))
@@ -596,7 +596,7 @@ final class DogHeaderView: NSView {
             return
         }
 
-        let phase = CGFloat(frameIndex) / CGFloat(frames.count)
+        let phase = CGFloat(frameIndex % frames.count) / CGFloat(frames.count)
         let bounce = sin(phase * 2 * .pi)          // one rise and fall per stride
         let lean = sin(phase * 2 * .pi + .pi / 2)  // leans into the rise, a quarter ahead
 
@@ -638,15 +638,21 @@ final class DogHeaderView: NSView {
         // A stride of zero means this pose does not run -- the dog has sat down. No
         // timer at all is the honest way to say that, and it costs nothing.
         guard DogArt.strideDuration(mood) > 0 else { frameIndex = 0; needsDisplay = true; return }
+
+        // How many frames there actually are, which is not a constant: the drawn dog
+        // has ten, supplied art has however many files were dropped in. Cycling on
+        // the constant instead meant two supplied frames played as 0,1,1,1,1,1,1,1,1,1
+        // -- the first pose for a tenth of the time and the second for the rest, which
+        // looks exactly like an animation that isn't running.
+        let count = max(DogArt.frames(mood: mood, size: dogRect.size).count, 1)
         // Interval comes from how long the whole stride should take, so a tired dog
-        // genuinely runs slower rather than just looking different.
-        // Capped: past about 12fps the extra frames cost battery without reading as
-        // any smoother at this size, and the whole point of a desktop widget is that
-        // you can leave it on.
-        let interval = max(DogArt.strideDuration(mood) / Double(DogArt.frameCount), 1.0 / 12)
+        // genuinely runs slower rather than just looking different. Capped: past about
+        // 12fps the extra frames cost battery without reading as any smoother at this
+        // size, and the whole point of a desktop widget is that you can leave it on.
+        let interval = max(DogArt.strideDuration(mood) / Double(count), 1.0 / 12)
         let timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             guard let self else { return }
-            self.frameIndex = (self.frameIndex + 1) % DogArt.frameCount
+            self.frameIndex = (self.frameIndex + 1) % count
             self.setNeedsDisplay(self.dogRect)
         }
         // A menu runs a modal run loop while open; without .common the dog would

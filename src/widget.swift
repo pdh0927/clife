@@ -57,10 +57,17 @@ final class DesktopWidget {
         panel?.orderOut(nil)
     }
 
-    /// Run the dog only while the panel is genuinely on screen.
+    /// Run the dog while the widget is open and running is switched on.
+    ///
+    /// There used to be an `occlusionState` check here too, on the theory that a dog
+    /// running under a fullscreen window is wasted battery. It never earned its place:
+    /// measured with the widget fully covered, CPU was unchanged, because macOS keeps
+    /// reporting a desktop-level window as visible. What it did do was eventually
+    /// report the opposite and stop the animation altogether, with nothing in the UI
+    /// to say why. An optimisation that never worked and can silently disable the
+    /// feature is worse than no optimisation.
     private func syncAnimation() {
-        guard let panel, panel.isVisible, DogHeaderView.animationEnabled,
-              panel.occlusionState.contains(.visible) else {
+        guard let panel, panel.isVisible, DogHeaderView.animationEnabled else {
             header?.stopAnimating()
             return
         }
@@ -120,13 +127,6 @@ final class DesktopWidget {
             stack.bottomAnchor.constraint(equalTo: background.bottomAnchor),
         ])
 
-        // Desktop level means a fullscreen app covers this completely -- and a dog
-        // running where nobody can see it is pure battery. macOS already tracks this
-        // and will tell us, so the animation follows visibility rather than the
-        // window merely being "open".
-        NotificationCenter.default.addObserver(
-            forName: NSWindow.didChangeOcclusionStateNotification, object: panel, queue: .main
-        ) { [weak self] _ in self?.syncAnimation() }
         NotificationCenter.default.addObserver(
             forName: DogHeaderView.enabledChanged, object: nil, queue: .main
         ) { [weak self] _ in self?.syncAnimation() }
