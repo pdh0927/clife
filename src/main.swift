@@ -1273,10 +1273,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// Renders the mood art to a file UNNotification can attach.
     ///
-    /// Written once per mood and reused: the notification centre copies the file into
-    /// its own store when the request is posted, so re-rendering on every threshold
-    /// crossing would be pure waste. Kept beside the usage cache so uninstalling takes
-    /// the whole directory with it.
+    /// Rendered fresh each time, not cached: `UNNotificationAttachment` *moves* the
+    /// file into the notification store rather than copying it, so the path is empty
+    /// again by the time the next threshold comes around. The `fileExists` check below
+    /// costs nothing and covers the case where a request is built but never posted.
+    ///
+    /// Kept beside the usage cache so uninstalling takes the whole directory with it.
     private static func moodAttachment(_ mood: DogMood) -> UNNotificationAttachment? {
         let directory = UsageCache.url.deletingLastPathComponent().appendingPathComponent("mood")
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -1300,6 +1302,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             else { return nil }
         }
         return try? UNNotificationAttachment(identifier: "dog-\(mood)", url: url)
+    }
+
+    /// Test seam for `--testnotify`, which cannot reach a private member.
+    static func moodAttachmentForTest(_ mood: DogMood) -> UNNotificationAttachment? {
+        moodAttachment(mood)
     }
 
     /// Sets the button's image via a nil-then-set toggle instead of a direct
@@ -1665,7 +1672,38 @@ private let sampleLimits: [UsageLimit] = [
                resetsAt: Date().addingTimeInterval(172800), scopeModel: "Fable", scopeSurface: nil),
 ]
 
+/// `Clife --testnotify` -- posts one threshold notification immediately.
+///
+/// The real ones only fire when usage crosses 30/50/60/70/80/90/95%, which is not
+/// something you can arrange while checking whether the banner looks right. This is
+/// the only way to see the app icon and the attached art without waiting for the
+/// account to cooperate.
+private func testNotify() -> Never {
+    let centre = UNUserNotificationCenter.current()
+    centre.requestAuthorization(options: [.alert, .sound]) { granted, _ in
+        guard granted else { print("알림 권한 없음 — 시스템 설정에서 허용 필요"); exit(1) }
+        let mood = DogMood(percent: 80)
+        let content = UNMutableNotificationContent()
+        content.title = "5시간 한도를 80% 썼어요"
+        content.body = "\(mood.line) · 1시간 5분 후 초기화"
+        content.sound = .default
+        if let attachment = AppDelegate.moodAttachmentForTest(mood) {
+            content.attachments = [attachment]
+        }
+        centre.add(UNNotificationRequest(identifier: UUID().uuidString,
+                                         content: content, trigger: nil)) { error in
+            print(error.map { "실패: \($0.localizedDescription)" } ?? "알림 전송됨")
+            // 배너가 뜨기 전에 프로세스가 죽으면 표시되지 않는다
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { exit(0) }
+        }
+    }
+    NSApplication.shared.setActivationPolicy(.accessory)
+    NSApplication.shared.run()
+    exit(0)   // run() 은 돌아오지 않지만 Never 반환을 컴파일러에 증명해야 한다
+}
+
 if CommandLine.arguments.contains("--selftest") { selfTest() }
+if CommandLine.arguments.contains("--testnotify") { testNotify() }
 if CommandLine.arguments.contains("--dogsheet") { dogSheet() }
 if CommandLine.arguments.contains("--probe") { probe() }
 
