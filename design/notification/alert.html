@@ -1,0 +1,131 @@
+<!-- @dsCard group="Notification" name="임계값 알림" subtitle="같은 강아지가 전한다 · 30/50/60/70/80/90/95%" -->
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>알림 — 강아지가 전하는 한도 소식</title>
+<style>
+  :root { --ink:#3A2E27; --paper:#FBF7F2; --muted:#8A7D73;
+          --ok:#4CAF7D; --warn:#E0A33E; --hot:#D9534F; }
+  body { margin:0; padding:32px; background:var(--paper);
+         font:14px/1.5 -apple-system, BlinkMacSystemFont, system-ui, sans-serif; color:var(--ink); }
+  h1 { font-size:18px; margin:0 0 4px; }
+  .lede { color:var(--muted); margin:0 0 24px; max-width:58ch; }
+  .stack { display:flex; flex-direction:column; gap:14px; max-width:400px; }
+  .toast { display:flex; gap:12px; align-items:center; background:rgba(250,248,245,.96);
+           border:1px solid #E4DBD1; border-radius:16px; padding:13px 15px;
+           box-shadow:0 8px 24px rgba(0,0,0,.12); }
+  .toast.dark { background:rgba(46,42,39,.97); border-color:#4A423C; color:#F2EBE4; }
+  .art { flex:0 0 auto; width:52px; height:40px; }
+  .txt { min-width:0; }
+  .t { font-weight:600; font-size:13px; }
+  .b { font-size:12px; color:var(--muted); }
+  .toast.dark .b { color:#A79B90; }
+  .label { font-size:12px; color:var(--muted); margin:18px 0 8px; }
+</style>
+
+<h1>알림 — 강아지가 전한다</h1>
+<p class="lede">
+  임계값 알림은 원래 “주간 · Fable 50%” 한 줄이었다. 숫자만 던지면 그게 좋은 소식인지 나쁜 소식인지
+  읽는 사람이 판단해야 한다. 같은 강아지가 같은 표정으로 전하면, 알림을 열기 전에도 톤이 먼저 전달된다.
+  macOS 알림에는 <code>UNNotificationAttachment</code> 로 이미지를 붙인다.
+</p>
+
+<p class="label">여유 구간</p>
+<div class="stack">
+  <div class="toast">
+    <svg class="art" viewBox="0 0 66 46">
+      <g transform="translate(2,6)">
+        <g stroke="#3A2E27" stroke-width="3.2" stroke-linecap="round" fill="none">
+          <line x1="10" y1="24" x2="2" y2="34"/><line x1="16" y1="25" x2="12" y2="35"/>
+          <line x1="27" y1="25" x2="34" y2="34"/><line x1="32" y1="24" x2="41" y2="32"/>
+        </g>
+        <path d="M7 17 Q-2 12 -1 3" stroke="#D8A874" stroke-width="4" stroke-linecap="round" fill="none"/>
+        <ellipse cx="20" cy="19" rx="15" ry="8.5" fill="#F0D2AC" stroke="#3A2E27" stroke-width="2.1"/>
+        <circle cx="36" cy="10" r="8.5" fill="#F0D2AC" stroke="#3A2E27" stroke-width="2.1"/>
+        <path d="M33.5 5 Q26 -3 22 2 Q26 6.5 32 9.5 Z" fill="#D8A874" stroke="#3A2E27" stroke-width="1.8" stroke-linejoin="round"/>
+        <ellipse cx="43" cy="13" rx="4.8" ry="3.6" fill="#F0D2AC" stroke="#3A2E27" stroke-width="2.1"/>
+        <circle cx="46" cy="12" r="1.7" fill="#3A2E27"/>
+        <path d="M35 7.6 q2.5 -2.5 4.8 0" stroke="#3A2E27" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+        <line x1="28" y1="17" x2="30" y2="24" stroke="#D97757" stroke-width="3.2" stroke-linecap="round"/>
+      </g>
+    </svg>
+    <div class="txt">
+      <div class="t">5시간 한도를 30% 썼어요</div>
+      <div class="b">아직 쌩쌩해요! · 4시간 12분 후 초기화</div>
+    </div>
+  </div>
+
+  <div class="toast">
+    <svg class="art" viewBox="0 0 66 46">
+      <g transform="translate(3,7)">
+        <g stroke="#3A2E27" stroke-width="3.2" stroke-linecap="round" fill="none">
+          <line x1="11" y1="24" x2="7" y2="33"/><line x1="17" y1="25" x2="16" y2="34"/>
+          <line x1="26" y1="25" x2="29" y2="34"/><line x1="32" y1="24" x2="36" y2="32"/>
+        </g>
+        <path d="M7 17 Q-1 14 -1 7" stroke="#D8A874" stroke-width="4" stroke-linecap="round" fill="none"/>
+        <ellipse cx="20" cy="19" rx="15" ry="8.5" fill="#F0D2AC" stroke="#3A2E27" stroke-width="2.1"/>
+        <circle cx="36" cy="10" r="8.5" fill="#F0D2AC" stroke="#3A2E27" stroke-width="2.1"/>
+        <path d="M33.5 6 Q26 2.5 24.5 8.5 Q28.5 12.5 33 10.5 Z" fill="#D8A874" stroke="#3A2E27" stroke-width="1.8" stroke-linejoin="round"/>
+        <ellipse cx="43" cy="13" rx="4.8" ry="3.6" fill="#F0D2AC" stroke="#3A2E27" stroke-width="2.1"/>
+        <circle cx="46" cy="12" r="1.7" fill="#3A2E27"/>
+        <circle cx="36.5" cy="8.4" r="1.5" fill="#3A2E27"/>
+        <line x1="28" y1="17" x2="30" y2="24" stroke="#D97757" stroke-width="3.2" stroke-linecap="round"/>
+      </g>
+    </svg>
+    <div class="txt">
+      <div class="t">주간 · 모든 모델을 60% 썼어요</div>
+      <div class="b">반 넘게 달렸어요 · 2일 후 초기화</div>
+    </div>
+  </div>
+</div>
+
+<p class="label">경고 구간 · 다크</p>
+<div class="stack">
+  <div class="toast dark">
+    <svg class="art" viewBox="0 0 66 46">
+      <g transform="translate(3,9)">
+        <g stroke="#3A2E27" stroke-width="3.2" stroke-linecap="round" fill="none">
+          <line x1="12" y1="23" x2="10" y2="31"/><line x1="19" y1="24" x2="19" y2="32"/>
+          <line x1="27" y1="24" x2="28" y2="32"/><line x1="33" y1="23" x2="35" y2="31"/>
+        </g>
+        <path d="M7 18 Q0 19 -2 24" stroke="#D8A874" stroke-width="4" stroke-linecap="round" fill="none"/>
+        <ellipse cx="21" cy="19" rx="15" ry="8.5" fill="#F0D2AC" stroke="#3A2E27" stroke-width="2.1"/>
+        <circle cx="36" cy="12" r="8.5" fill="#F0D2AC" stroke="#3A2E27" stroke-width="2.1"/>
+        <path d="M33.5 8 Q26 11.5 26.5 18.5 Q31 21 34.5 14.5 Z" fill="#D8A874" stroke="#3A2E27" stroke-width="1.8" stroke-linejoin="round"/>
+        <ellipse cx="43" cy="15" rx="4.8" ry="3.6" fill="#F0D2AC" stroke="#3A2E27" stroke-width="2.1"/>
+        <circle cx="46" cy="14" r="1.7" fill="#3A2E27"/>
+        <path d="M43 18 q1 4 -2 5" stroke="#D97757" stroke-width="2.8" stroke-linecap="round" fill="none"/>
+        <path d="M34 9.6 q2.5 2.5 4.8 0" stroke="#3A2E27" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+        <line x1="28" y1="17" x2="30" y2="24" stroke="#D97757" stroke-width="3.2" stroke-linecap="round"/>
+      </g>
+    </svg>
+    <div class="txt">
+      <div class="t">5시간 한도를 80% 썼어요</div>
+      <div class="b">조금 지쳐가요… · 1시간 5분 후 초기화</div>
+    </div>
+  </div>
+
+  <div class="toast dark">
+    <svg class="art" viewBox="0 0 66 46">
+      <g transform="translate(4,11)">
+        <g stroke="#3A2E27" stroke-width="3.2" stroke-linecap="round" fill="none">
+          <line x1="13" y1="23" x2="11" y2="29"/><line x1="27" y1="22" x2="28" y2="29"/>
+          <line x1="32" y1="21" x2="34" y2="29"/>
+        </g>
+        <path d="M7 20 Q1 23 2 27" stroke="#D8A874" stroke-width="4" stroke-linecap="round" fill="none"/>
+        <ellipse cx="21" cy="20" rx="15" ry="9" fill="#F0D2AC" stroke="#3A2E27" stroke-width="2.1"/>
+        <circle cx="36" cy="14" r="8.5" fill="#F0D2AC" stroke="#3A2E27" stroke-width="2.1"/>
+        <path d="M33.5 10 Q26 13.5 26.5 20.5 Q31 23 34.5 16.5 Z" fill="#D8A874" stroke="#3A2E27" stroke-width="1.8" stroke-linejoin="round"/>
+        <ellipse cx="43" cy="17" rx="4.8" ry="3.6" fill="#F0D2AC" stroke="#3A2E27" stroke-width="2.1"/>
+        <circle cx="46" cy="16" r="1.7" fill="#3A2E27"/>
+        <path d="M43 20 q1 5 -2 6" stroke="#D97757" stroke-width="2.8" stroke-linecap="round" fill="none"/>
+        <path d="M33 11.6 q2.5 2.5 4.8 0" stroke="#3A2E27" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+        <circle cx="29" cy="3" r="1.6" fill="#7FB8E0"/><circle cx="34" cy="0.5" r="1.2" fill="#7FB8E0" opacity=".7"/>
+        <line x1="28" y1="18" x2="30" y2="25" stroke="#D97757" stroke-width="3.2" stroke-linecap="round"/>
+      </g>
+    </svg>
+    <div class="txt">
+      <div class="t">5시간 한도를 95% 썼어요</div>
+      <div class="b">잠깐 쉬어야 할 것 같아요 · 22분 후 초기화</div>
+    </div>
+  </div>
+</div>
