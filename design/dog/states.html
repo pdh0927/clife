@@ -1,62 +1,62 @@
-<!-- @dsCard group="Dog" name="달리는 강아지 4단계" subtitle="사용량이 곧 달린 거리 · 표정은 남은 여유" -->
+<!-- @dsCard group="Dog" name="달리는 강아지 4단계" subtitle="B(비글) 실루엣 · 사용량이 곧 달린 거리" -->
 <!DOCTYPE html>
 <meta charset="utf-8">
 <title>달리는 강아지 — 4단계</title>
 <style>
   :root {
-    --ink: #3A2E27;          /* 윤곽선 · 따뜻한 갈색 */
-    --fur: #F0D2AC;          /* 몸통 */
-    --fur-dark: #D8A874;     /* 귀 · 꼬리 */
-    --collar: #D97757;
-    --tag: #E8B84B;
-    --ok: #4CAF7D; --warn: #E0A33E; --hot: #D9534F;
-    --paper: #FBF7F2; --muted: #8A7D73; --line: #E8DFD5;
+    --ink:#3A2E27; --fur:#F0D2AC; --fur-dark:#D8A874; --collar:#D97757; --tag:#E8B84B;
+    --ok:#4CAF7D; --warn:#E0A33E; --hot:#D9534F;
+    --paper:#FBF7F2; --muted:#8A7D73; --line:#E8DFD5;
   }
   body { margin:0; padding:32px; background:var(--paper);
-         font:14px/1.5 -apple-system, BlinkMacSystemFont, system-ui, sans-serif; color:var(--ink); }
+         font:14px/1.55 -apple-system, BlinkMacSystemFont, system-ui, sans-serif; color:var(--ink); }
   h1 { font-size:18px; margin:0 0 4px; }
-  .lede { color:var(--muted); margin:0 0 28px; max-width:56ch; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(236px,1fr)); gap:20px; }
-  .card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:18px; }
+  h2 { font-size:15px; margin:30px 0 4px; }
+  .lede { color:var(--muted); margin:0 0 20px; max-width:58ch; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(244px,1fr)); gap:18px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:16px; }
   .stage { display:block; width:100%; height:auto; }
   .pct { font:600 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
   .say { margin:10px 0 2px; font-weight:600; font-size:14px; }
   .note { color:var(--muted); font-size:12px; margin:0; }
   .swatch { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:6px; vertical-align:1px; }
+  .sizes { display:flex; gap:22px; align-items:flex-end; background:#fff;
+           border:1px solid var(--line); border-radius:14px; padding:16px; margin-top:12px; }
+  .sizes > span { font-size:11px; color:var(--muted); }
 </style>
 
 <h1>달리는 강아지 — 4단계</h1>
 <p class="lede">
-  사용량을 막대로만 보여주면 “지금 괜찮은가”를 매번 계산해야 한다. 강아지가 <strong>트랙 위를 달린 거리</strong>로
-  같은 숫자를 말하게 하면, 위치는 얼마나 썼는지를, 표정은 그게 걱정할 일인지를 알려준다.
-  도형은 전부 원·타원·둥근 선·2차 곡선이다 — Core Graphics 로 그대로 옮기기 위한 제약.
+  실루엣은 후보 5안(<a href="variants.html">variants.html</a>) 중 <strong>B·비글</strong>이다.
+  46pt·32pt로 줄였을 때 개로 읽히는 유일한 안이었다 — 뾰족 귀는 고양이가 되고, 윤곽선을 없앤 안은
+  뭉개지고, 머리를 과하게 키운 안은 귀가 얼굴을 덮었다. 작은 크기에서 살아남는 특징은 둘뿐이다:
+  <strong>늘어진 귀</strong>와 <strong>머리 밖으로 나온 주둥이</strong>.
+</p>
+<p class="lede">
+  도형은 원·타원·둥근 선·2차 곡선만 쓴다. <code>NSBezierPath</code> 에 1:1로 대응해야
+  <code>src/dog.swift</code> 로의 포팅이 해석이 아니라 기계적 옮김이 된다.
 </p>
 
 <div class="grid">
 
   <div class="card">
-    <svg class="stage" viewBox="0 0 220 100" role="img" aria-label="신나게 달리는 강아지, 24%">
-      <line x1="14" y1="82" x2="206" y2="82" stroke="var(--line)" stroke-width="6" stroke-linecap="round"/>
-      <line x1="14" y1="82" x2="60" y2="82" stroke="var(--ok)" stroke-width="6" stroke-linecap="round"/>
-      <line x1="206" y1="70" x2="206" y2="94" stroke="var(--ink)" stroke-width="2" stroke-linecap="round" opacity=".35"/>
-
-      <g transform="translate(34,32)">
-        <!-- 다리: 앞뒤로 크게 벌어진 전력질주 -->
-        <g stroke="var(--ink)" stroke-width="4.6" stroke-linecap="round" fill="none">
-          <line x1="13" y1="31" x2="3"  y2="45"/><line x1="21" y1="32" x2="17" y2="47"/>
-          <line x1="34" y1="32" x2="43" y2="46"/><line x1="40" y1="31" x2="52" y2="44"/>
+    <svg class="stage" viewBox="0 0 116 96" id="m1">
+      <line x1="8" y1="86" x2="108" y2="86" stroke="var(--line)" stroke-width="6" stroke-linecap="round"/>
+      <line x1="8" y1="86" x2="32" y2="86" stroke="var(--ok)" stroke-width="6" stroke-linecap="round"/>
+      <g stroke-linecap="round" stroke-linejoin="round">
+        <g stroke="var(--ink)" stroke-width="6.5" fill="none">
+          <line x1="26" y1="54" x2="14" y2="72"/><line x1="38" y1="56" x2="28" y2="76"/>
+          <line x1="52" y1="56" x2="64" y2="76"/><line x1="62" y1="54" x2="78" y2="70"/>
         </g>
-        <path d="M9 21 Q-4 15 -2 3" stroke="var(--fur-dark)" stroke-width="5.5" stroke-linecap="round" fill="none"/>
-        <ellipse cx="26" cy="24" rx="19" ry="11" fill="var(--fur)" stroke="var(--ink)" stroke-width="2.5"/>
-        <!-- 귀: 머리에 뿌리내린 잎 모양. 달릴 때 뒤로 날린다 -->
-        <circle cx="46" cy="14" r="11" fill="var(--fur)" stroke="var(--ink)" stroke-width="2.5"/>
-        <path d="M43 7 Q34 -4 29 2 Q34 9 41 13 Z" fill="var(--fur-dark)" stroke="var(--ink)" stroke-width="2.2" stroke-linejoin="round"/>
-        <ellipse cx="55" cy="17" rx="6" ry="4.5" fill="var(--fur)" stroke="var(--ink)" stroke-width="2.5"/>
-        <circle cx="59" cy="16" r="2.2" fill="var(--ink)"/>
-        <path d="M45 11 q3 -3 6 0" stroke="var(--ink)" stroke-width="2.2" stroke-linecap="round" fill="none"/>
-        <!-- 목줄: 목을 감는 띠 + 인식표 -->
-        <path d="M37 13 Q40 21 38 28" stroke="var(--collar)" stroke-width="5" stroke-linecap="round" fill="none"/>
-        <circle cx="38.5" cy="30" r="2.7" fill="var(--tag)" stroke="var(--ink)" stroke-width="1.6"/>
+        <path d="M18 38 Q4 30 6 14" stroke="var(--fur-dark)" stroke-width="7" fill="none"/>
+        <ellipse cx="42" cy="40" rx="24" ry="15" fill="var(--fur)" stroke="var(--ink)" stroke-width="3"/>
+        <path d="M34 28 Q37 40 35 50" stroke="var(--collar)" stroke-width="6" fill="none"/>
+        <circle cx="74" cy="28" r="17" fill="var(--fur)" stroke="var(--ink)" stroke-width="3"/>
+        <path d="M68 13 Q52 8 50 26 Q58 38 70 30 Z" fill="var(--fur-dark)" stroke="var(--ink)" stroke-width="3"/>
+        <ellipse cx="94" cy="34" rx="12" ry="8.5" fill="var(--fur)" stroke="var(--ink)" stroke-width="3"/>
+        <circle cx="101" cy="31" r="3.4" fill="var(--ink)"/>
+        <path d="M79 23 q4 -4 8 0" stroke="var(--ink)" stroke-width="3" fill="none"/>
+        <circle cx="35.5" cy="52" r="3.6" fill="var(--tag)" stroke="var(--ink)" stroke-width="2"/>
       </g>
     </svg>
     <p class="say"><span class="swatch" style="background:var(--ok)"></span>아직 쌩쌩해요!</p>
@@ -64,25 +64,23 @@
   </div>
 
   <div class="card">
-    <svg class="stage" viewBox="0 0 220 100" role="img" aria-label="꾸준히 달리는 강아지, 58%">
-      <line x1="14" y1="82" x2="206" y2="82" stroke="var(--line)" stroke-width="6" stroke-linecap="round"/>
-      <line x1="14" y1="82" x2="125" y2="82" stroke="var(--ok)" stroke-width="6" stroke-linecap="round"/>
-      <line x1="206" y1="70" x2="206" y2="94" stroke="var(--ink)" stroke-width="2" stroke-linecap="round" opacity=".35"/>
-
-      <g transform="translate(99,34)">
-        <g stroke="var(--ink)" stroke-width="4.6" stroke-linecap="round" fill="none">
-          <line x1="14" y1="31" x2="9"  y2="44"/><line x1="22" y1="32" x2="21" y2="45"/>
-          <line x1="33" y1="32" x2="36" y2="45"/><line x1="40" y1="31" x2="46" y2="43"/>
+    <svg class="stage" viewBox="0 0 116 96" id="m2">
+      <line x1="8" y1="86" x2="108" y2="86" stroke="var(--line)" stroke-width="6" stroke-linecap="round"/>
+      <line x1="8" y1="86" x2="66" y2="86" stroke="var(--ok)" stroke-width="6" stroke-linecap="round"/>
+      <g stroke-linecap="round" stroke-linejoin="round">
+        <g stroke="var(--ink)" stroke-width="6.5" fill="none">
+          <line x1="27" y1="54" x2="20" y2="72"/><line x1="39" y1="56" x2="35" y2="74"/>
+          <line x1="51" y1="56" x2="55" y2="74"/><line x1="62" y1="54" x2="70" y2="71"/>
         </g>
-        <path d="M9 21 Q-2 17 -1 8" stroke="var(--fur-dark)" stroke-width="5.5" stroke-linecap="round" fill="none"/>
-        <ellipse cx="26" cy="24" rx="19" ry="11" fill="var(--fur)" stroke="var(--ink)" stroke-width="2.5"/>
-        <circle cx="46" cy="14" r="11" fill="var(--fur)" stroke="var(--ink)" stroke-width="2.5"/>
-        <path d="M43 8 Q33 4 31 11 Q36 16 42 14 Z" fill="var(--fur-dark)" stroke="var(--ink)" stroke-width="2.2" stroke-linejoin="round"/>
-        <ellipse cx="55" cy="17" rx="6" ry="4.5" fill="var(--fur)" stroke="var(--ink)" stroke-width="2.5"/>
-        <circle cx="59" cy="16" r="2.2" fill="var(--ink)"/>
-        <circle cx="47" cy="12" r="1.9" fill="var(--ink)"/>
-        <path d="M37 13 Q40 21 38 28" stroke="var(--collar)" stroke-width="5" stroke-linecap="round" fill="none"/>
-        <circle cx="38.5" cy="30" r="2.7" fill="var(--tag)" stroke="var(--ink)" stroke-width="1.6"/>
+        <path d="M18 38 Q5 33 6 20" stroke="var(--fur-dark)" stroke-width="7" fill="none"/>
+        <ellipse cx="42" cy="40" rx="24" ry="15" fill="var(--fur)" stroke="var(--ink)" stroke-width="3"/>
+        <path d="M34 28 Q37 40 35 50" stroke="var(--collar)" stroke-width="6" fill="none"/>
+        <circle cx="74" cy="28" r="17" fill="var(--fur)" stroke="var(--ink)" stroke-width="3"/>
+        <path d="M68 14 Q52 17 53 36 Q61 45 70 31 Z" fill="var(--fur-dark)" stroke="var(--ink)" stroke-width="3"/>
+        <ellipse cx="94" cy="34" rx="12" ry="8.5" fill="var(--fur)" stroke="var(--ink)" stroke-width="3"/>
+        <circle cx="101" cy="31" r="3.4" fill="var(--ink)"/>
+        <circle cx="82" cy="24" r="3" fill="var(--ink)"/>
+        <circle cx="35.5" cy="52" r="3.6" fill="var(--tag)" stroke="var(--ink)" stroke-width="2"/>
       </g>
     </svg>
     <p class="say"><span class="swatch" style="background:var(--ok)"></span>반 넘게 달렸어요</p>
@@ -90,27 +88,24 @@
   </div>
 
   <div class="card">
-    <svg class="stage" viewBox="0 0 220 100" role="img" aria-label="지쳐가는 강아지, 79%">
-      <line x1="14" y1="82" x2="206" y2="82" stroke="var(--line)" stroke-width="6" stroke-linecap="round"/>
-      <line x1="14" y1="82" x2="166" y2="82" stroke="var(--warn)" stroke-width="6" stroke-linecap="round"/>
-      <line x1="206" y1="70" x2="206" y2="94" stroke="var(--ink)" stroke-width="2" stroke-linecap="round" opacity=".35"/>
-
-      <g transform="translate(140,38)">
-        <g stroke="var(--ink)" stroke-width="4.6" stroke-linecap="round" fill="none">
-          <line x1="15" y1="30" x2="13" y2="41"/><line x1="23" y1="31" x2="23" y2="42"/>
-          <line x1="32" y1="31" x2="33" y2="42"/><line x1="39" y1="30" x2="41" y2="41"/>
+    <svg class="stage" viewBox="0 0 116 96" id="m3">
+      <line x1="8" y1="86" x2="108" y2="86" stroke="var(--line)" stroke-width="6" stroke-linecap="round"/>
+      <line x1="8" y1="86" x2="88" y2="86" stroke="var(--warn)" stroke-width="6" stroke-linecap="round"/>
+      <g stroke-linecap="round" stroke-linejoin="round">
+        <g stroke="var(--ink)" stroke-width="6.5" fill="none">
+          <line x1="28" y1="56" x2="26" y2="72"/><line x1="40" y1="58" x2="40" y2="74"/>
+          <line x1="50" y1="58" x2="51" y2="74"/><line x1="61" y1="56" x2="64" y2="72"/>
         </g>
-        <path d="M9 22 Q1 23 -1 30" stroke="var(--fur-dark)" stroke-width="5.5" stroke-linecap="round" fill="none"/>
-        <ellipse cx="26" cy="24" rx="19" ry="11" fill="var(--fur)" stroke="var(--ink)" stroke-width="2.5"/>
-        <!-- 귀: 축 늘어짐 -->
-        <circle cx="46" cy="16" r="11" fill="var(--fur)" stroke="var(--ink)" stroke-width="2.5"/>
-        <path d="M43 11 Q34 14 34 23 Q40 26 44 18 Z" fill="var(--fur-dark)" stroke="var(--ink)" stroke-width="2.2" stroke-linejoin="round"/>
-        <ellipse cx="55" cy="19" rx="6" ry="4.5" fill="var(--fur)" stroke="var(--ink)" stroke-width="2.5"/>
-        <circle cx="59" cy="18" r="2.2" fill="var(--ink)"/>
-        <path d="M55 23 q1 5 -2 6" stroke="var(--collar)" stroke-width="3.4" stroke-linecap="round" fill="none"/>
-        <path d="M44 13 q3 3 6 0" stroke="var(--ink)" stroke-width="2.2" stroke-linecap="round" fill="none"/>
-        <path d="M37 15 Q40 23 38 30" stroke="var(--collar)" stroke-width="5" stroke-linecap="round" fill="none"/>
-        <circle cx="38.5" cy="32" r="2.7" fill="var(--tag)" stroke="var(--ink)" stroke-width="1.6"/>
+        <path d="M18 42 Q6 44 3 54" stroke="var(--fur-dark)" stroke-width="7" fill="none"/>
+        <ellipse cx="42" cy="43" rx="24" ry="15" fill="var(--fur)" stroke="var(--ink)" stroke-width="3"/>
+        <path d="M34 31 Q37 43 35 53" stroke="var(--collar)" stroke-width="6" fill="none"/>
+        <circle cx="74" cy="32" r="17" fill="var(--fur)" stroke="var(--ink)" stroke-width="3"/>
+        <path d="M68 19 Q53 24 55 44 Q63 52 71 36 Z" fill="var(--fur-dark)" stroke="var(--ink)" stroke-width="3"/>
+        <ellipse cx="94" cy="38" rx="12" ry="8.5" fill="var(--fur)" stroke="var(--ink)" stroke-width="3"/>
+        <circle cx="101" cy="35" r="3.4" fill="var(--ink)"/>
+        <path d="M94 45 q2 8 -4 9" stroke="var(--collar)" stroke-width="5" fill="none"/>
+        <path d="M79 29 q4 4 8 0" stroke="var(--ink)" stroke-width="3" fill="none"/>
+        <circle cx="35.5" cy="55" r="3.6" fill="var(--tag)" stroke="var(--ink)" stroke-width="2"/>
       </g>
     </svg>
     <p class="say"><span class="swatch" style="background:var(--warn)"></span>조금 지쳐가요…</p>
@@ -118,29 +113,26 @@
   </div>
 
   <div class="card">
-    <svg class="stage" viewBox="0 0 220 100" role="img" aria-label="주저앉은 강아지, 96%">
-      <line x1="14" y1="82" x2="206" y2="82" stroke="var(--line)" stroke-width="6" stroke-linecap="round"/>
-      <line x1="14" y1="82" x2="198" y2="82" stroke="var(--hot)" stroke-width="6" stroke-linecap="round"/>
-      <line x1="206" y1="70" x2="206" y2="94" stroke="var(--ink)" stroke-width="2" stroke-linecap="round" opacity=".55"/>
-
-      <g transform="translate(146,42)">
-        <!-- 뒷다리는 접혀 사라지고 앞다리만 버틴다 -->
-        <g stroke="var(--ink)" stroke-width="4.6" stroke-linecap="round" fill="none">
-          <line x1="17" y1="31" x2="15" y2="39"/>
-          <line x1="34" y1="29" x2="35" y2="39"/><line x1="40" y1="28" x2="42" y2="39"/>
+    <svg class="stage" viewBox="0 0 116 96" id="m4">
+      <line x1="8" y1="86" x2="108" y2="86" stroke="var(--line)" stroke-width="6" stroke-linecap="round"/>
+      <line x1="8" y1="86" x2="104" y2="86" stroke="var(--hot)" stroke-width="6" stroke-linecap="round"/>
+      <g stroke-linecap="round" stroke-linejoin="round">
+        <g stroke="var(--ink)" stroke-width="6.5" fill="none">
+          <line x1="30" y1="58" x2="28" y2="70"/>
+          <line x1="52" y1="56" x2="53" y2="72"/><line x1="61" y1="54" x2="64" y2="72"/>
         </g>
-        <path d="M9 26 Q2 30 4 35" stroke="var(--fur-dark)" stroke-width="5.5" stroke-linecap="round" fill="none"/>
-        <ellipse cx="26" cy="26" rx="19" ry="12" fill="var(--fur)" stroke="var(--ink)" stroke-width="2.5"/>
-        <circle cx="46" cy="19" r="11" fill="var(--fur)" stroke="var(--ink)" stroke-width="2.5"/>
-        <path d="M43 14 Q34 18 35 27 Q41 30 44 21 Z" fill="var(--fur-dark)" stroke="var(--ink)" stroke-width="2.2" stroke-linejoin="round"/>
-        <ellipse cx="55" cy="22" rx="6" ry="4.5" fill="var(--fur)" stroke="var(--ink)" stroke-width="2.5"/>
-        <circle cx="59" cy="21" r="2.2" fill="var(--ink)"/>
-        <path d="M55 26 q1 6 -3 7" stroke="var(--collar)" stroke-width="3.4" stroke-linecap="round" fill="none"/>
-        <path d="M43 16 q3 3 6 0" stroke="var(--ink)" stroke-width="2.2" stroke-linecap="round" fill="none"/>
-        <circle cx="36" cy="6" r="2" fill="#7FB8E0"/>
-        <circle cx="42" cy="2" r="1.5" fill="#7FB8E0" opacity=".7"/>
-        <path d="M37 18 Q40 26 38 33" stroke="var(--collar)" stroke-width="5" stroke-linecap="round" fill="none"/>
-        <circle cx="38.5" cy="35" r="2.7" fill="var(--tag)" stroke="var(--ink)" stroke-width="1.6"/>
+        <path d="M18 48 Q6 52 8 60" stroke="var(--fur-dark)" stroke-width="7" fill="none"/>
+        <ellipse cx="42" cy="47" rx="24" ry="16" fill="var(--fur)" stroke="var(--ink)" stroke-width="3"/>
+        <path d="M34 35 Q37 47 35 57" stroke="var(--collar)" stroke-width="6" fill="none"/>
+        <circle cx="74" cy="36" r="17" fill="var(--fur)" stroke="var(--ink)" stroke-width="3"/>
+        <path d="M68 23 Q53 29 55 48 Q63 56 71 40 Z" fill="var(--fur-dark)" stroke="var(--ink)" stroke-width="3"/>
+        <ellipse cx="94" cy="42" rx="12" ry="8.5" fill="var(--fur)" stroke="var(--ink)" stroke-width="3"/>
+        <circle cx="101" cy="39" r="3.4" fill="var(--ink)"/>
+        <path d="M94 49 q2 9 -5 10" stroke="var(--collar)" stroke-width="5" fill="none"/>
+        <path d="M79 33 q4 4 8 0" stroke="var(--ink)" stroke-width="3" fill="none"/>
+        <circle cx="60" cy="12" r="2.8" fill="#7FB8E0"/>
+        <circle cx="68" cy="5" r="2.1" fill="#7FB8E0" opacity=".7"/>
+        <circle cx="35.5" cy="59" r="3.6" fill="var(--tag)" stroke="var(--ink)" stroke-width="2"/>
       </g>
     </svg>
     <p class="say"><span class="swatch" style="background:var(--hot)"></span>잠깐 쉬어야 할 것 같아요</p>
@@ -148,26 +140,28 @@
   </div>
 </div>
 
-<h2 style="font-size:15px;margin:32px 0 4px">실제 크기 확인</h2>
-<p class="note" style="margin-bottom:14px">드롭다운 안에서 강아지는 약 46pt 높이로 그려진다. 큰 화면에서 잘 보이는 것과 무관하다.</p>
-<div style="display:flex;gap:26px;align-items:flex-end;background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px">
-  <div><div class="note" style="margin-bottom:6px">46pt</div><div id="s46" style="display:flex;gap:14px"></div></div>
-  <div><div class="note" style="margin-bottom:6px">32pt</div><div id="s32" style="display:flex;gap:12px"></div></div>
+<h2>실제 크기 확인</h2>
+<p class="note">드롭다운 안에서 강아지는 약 46pt 높이로 그려진다. 큰 화면에서 잘 보이는 것과 무관하다.</p>
+<div class="sizes">
+  <span>46pt</span><span class="slot" data-h="46"></span>
+  <span>32pt</span><span class="slot" data-h="32"></span>
 </div>
+
 <script>
-  // 위 카드의 강아지 그룹만 떼어내 작은 크기로 다시 그린다.
-  const src = [...document.querySelectorAll('.card svg')];
-  for (const [id, h] of [['s46', 46], ['s32', 32]]) {
-    const host = document.getElementById(id);
-    for (const svg of src) {
-      const g = svg.querySelector('g[transform]').cloneNode(true);
+  // 트랙 줄을 뺀 강아지만 떼어 실제 크기로 다시 그린다.
+  for (const slot of document.querySelectorAll('.slot')) {
+    const row = document.createElement('span');
+    row.style.display = 'flex';
+    row.style.gap = Number(slot.dataset.h) > 40 ? '10px' : '8px';
+    for (const id of ['m1', 'm2', 'm3', 'm4']) {
+      const g = document.getElementById(id).querySelector('g').cloneNode(true);
       const out = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      out.setAttribute('viewBox', '-6 -8 72 58');
-      out.setAttribute('height', h);
-      out.setAttribute('width', h * 72 / 58);
+      out.setAttribute('viewBox', '0 0 116 84');
+      out.setAttribute('height', slot.dataset.h);
+      out.setAttribute('width', slot.dataset.h * 116 / 84);
       out.appendChild(g);
-      g.removeAttribute('transform');
-      host.appendChild(out);
+      row.appendChild(out);
     }
+    slot.replaceWith(row);
   }
 </script>

@@ -1,0 +1,170 @@
+<!-- @dsCard group="Dog" name="실루엣 후보 5안" subtitle="고르는 용도 — 수렴이 아니라 발산" -->
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>강아지 실루엣 후보</title>
+<style>
+  :root {
+    --ink:#3A2E27; --fur:#F0D2AC; --fur-dark:#D8A874; --collar:#D97757; --tag:#E8B84B;
+    --paper:#FBF7F2; --muted:#8A7D73; --line:#E8DFD5; --ok:#4CAF7D;
+  }
+  body { margin:0; padding:32px; background:var(--paper);
+         font:14px/1.55 -apple-system, BlinkMacSystemFont, system-ui, sans-serif; color:var(--ink); }
+  h1 { font-size:18px; margin:0 0 4px; }
+  .lede { color:var(--muted); margin:0 0 26px; max-width:60ch; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:18px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:16px; }
+  .card.pick { border-color:var(--ok); box-shadow:0 0 0 2px rgba(76,175,125,.18); }
+  svg.big { display:block; width:100%; height:auto; }
+  .name { font-weight:600; margin:10px 0 2px; font-size:14px; }
+  .why { color:var(--muted); font-size:12px; margin:0 0 10px; }
+  .small { display:flex; gap:14px; align-items:flex-end; padding-top:10px; border-top:1px dashed var(--line); }
+  .small span { font-size:10px; color:var(--muted); }
+</style>
+
+<h1>강아지 실루엣 후보</h1>
+<p class="lede">
+  현재안이 “개”로 안 읽히는 원인은 셋이다 — <strong>머리가 몸에 비해 작고</strong>,
+  <strong>주둥이가 머리 원 안에 파묻혀 있고</strong>, 다리가 가늘고 넓게 벌어져 거미처럼 보인다.
+  각 후보는 그 셋을 <em>서로 다른 방식으로</em> 푼다. 좌표를 조금씩 미는 대신 갈래를 벌려놓고 고른다.
+  각 카드 아래는 실제로 쓰이는 46pt·32pt 크기다 — 큰 화면에서만 예쁜 건 이 앱에서 쓸모가 없다.
+</p>
+
+<div class="grid">
+
+  <!-- A. 코기: 아주 둥근 몸 + 짧고 굵은 다리 + 선 귀 -->
+  <div class="card">
+    <svg class="big" viewBox="0 0 108 76" id="vA">
+      <g stroke-linecap="round" stroke-linejoin="round">
+        <g stroke="var(--ink)" stroke-width="7" fill="none">
+          <line x1="26" y1="56" x2="24" y2="64"/><line x1="40" y1="58" x2="40" y2="66"/>
+          <line x1="54" y1="58" x2="56" y2="66"/><line x1="64" y1="56" x2="68" y2="64"/>
+        </g>
+        <path d="M18 40 Q8 34 10 24" stroke="var(--fur-dark)" stroke-width="8" fill="none"/>
+        <ellipse cx="44" cy="42" rx="26" ry="17" fill="var(--fur)" stroke="var(--ink)" stroke-width="3"/>
+        <path d="M34 30 Q37 42 35 52" stroke="var(--collar)" stroke-width="6" fill="none"/>
+        <circle cx="76" cy="28" r="18" fill="var(--fur)" stroke="var(--ink)" stroke-width="3"/>
+        <path d="M64 16 L62 2 L76 10 Z" fill="var(--fur-dark)" stroke="var(--ink)" stroke-width="3"/>
+        <path d="M88 14 L94 2 L96 16 Z" fill="var(--fur-dark)" stroke="var(--ink)" stroke-width="3"/>
+        <ellipse cx="94" cy="34" rx="11" ry="8" fill="var(--fur)" stroke="var(--ink)" stroke-width="3"/>
+        <circle cx="100" cy="31" r="3.4" fill="var(--ink)"/>
+        <path d="M70 26 q4 -4 8 0" stroke="var(--ink)" stroke-width="3" fill="none"/>
+        <circle cx="35.5" cy="54" r="3.6" fill="var(--tag)" stroke="var(--ink)" stroke-width="2"/>
+      </g>
+    </svg>
+    <p class="name">A · 코기</p>
+    <p class="why">몸을 크게 둥글리고 다리를 아주 짧고 굵게. 선 귀가 실루엣을 또렷하게 만든다.</p>
+    <div class="small"><span>46pt</span><span class="slot" data-src="vA" data-h="46"></span><span>32pt</span><span class="slot" data-src="vA" data-h="32"></span></div>
+  </div>
+
+  <!-- B. 비글: 늘어진 귀 + 확실히 튀어나온 주둥이 -->
+  <div class="card">
+    <svg class="big" viewBox="0 0 108 76" id="vB">
+      <g stroke-linecap="round" stroke-linejoin="round">
+        <g stroke="var(--ink)" stroke-width="6" fill="none">
+          <line x1="26" y1="54" x2="20" y2="66"/><line x1="38" y1="56" x2="34" y2="68"/>
+          <line x1="52" y1="56" x2="58" y2="68"/><line x1="62" y1="54" x2="70" y2="66"/>
+        </g>
+        <path d="M18 38 Q6 32 8 20" stroke="var(--fur-dark)" stroke-width="7" fill="none"/>
+        <ellipse cx="42" cy="40" rx="24" ry="15" fill="var(--fur)" stroke="var(--ink)" stroke-width="3"/>
+        <path d="M34 28 Q37 40 35 50" stroke="var(--collar)" stroke-width="6" fill="none"/>
+        <circle cx="74" cy="28" r="17" fill="var(--fur)" stroke="var(--ink)" stroke-width="3"/>
+        <path d="M68 14 Q54 18 55 38 Q62 46 70 32 Z" fill="var(--fur-dark)" stroke="var(--ink)" stroke-width="3"/>
+        <ellipse cx="94" cy="34" rx="12" ry="8.5" fill="var(--fur)" stroke="var(--ink)" stroke-width="3"/>
+        <circle cx="101" cy="31" r="3.4" fill="var(--ink)"/>
+        <path d="M80 24 q3.5 -3.5 7 0" stroke="var(--ink)" stroke-width="3" fill="none"/>
+        <circle cx="35.5" cy="52" r="3.6" fill="var(--tag)" stroke="var(--ink)" stroke-width="2"/>
+      </g>
+    </svg>
+    <p class="name">B · 비글</p>
+    <p class="why">늘어진 귀가 머리 뒤에 붙고 주둥이가 확실히 튀어나온다. 가장 “개”답다.</p>
+    <div class="small"><span>46pt</span><span class="slot" data-src="vB" data-h="46"></span><span>32pt</span><span class="slot" data-src="vB" data-h="32"></span></div>
+  </div>
+
+  <!-- C. 시바: 뾰족 귀 + 등 위로 말린 꼬리 -->
+  <div class="card">
+    <svg class="big" viewBox="0 0 108 76" id="vC">
+      <g stroke-linecap="round" stroke-linejoin="round">
+        <g stroke="var(--ink)" stroke-width="6" fill="none">
+          <line x1="28" y1="52" x2="22" y2="66"/><line x1="40" y1="54" x2="36" y2="68"/>
+          <line x1="52" y1="54" x2="58" y2="68"/><line x1="62" y1="52" x2="70" y2="66"/>
+        </g>
+        <path d="M20 34 Q10 18 24 14 Q34 14 30 26" stroke="var(--fur-dark)" stroke-width="7" fill="none"/>
+        <ellipse cx="44" cy="38" rx="24" ry="14" fill="var(--fur)" stroke="var(--ink)" stroke-width="3"/>
+        <path d="M36 26 Q39 38 37 48" stroke="var(--collar)" stroke-width="6" fill="none"/>
+        <circle cx="76" cy="26" r="17" fill="var(--fur)" stroke="var(--ink)" stroke-width="3"/>
+        <path d="M64 14 L60 0 L75 8 Z" fill="var(--fur-dark)" stroke="var(--ink)" stroke-width="3"/>
+        <path d="M86 10 L94 0 L95 14 Z" fill="var(--fur-dark)" stroke="var(--ink)" stroke-width="3"/>
+        <ellipse cx="95" cy="32" rx="11" ry="8" fill="var(--fur)" stroke="var(--ink)" stroke-width="3"/>
+        <circle cx="101" cy="29" r="3.2" fill="var(--ink)"/>
+        <path d="M70 24 q4 -4 8 0" stroke="var(--ink)" stroke-width="3" fill="none"/>
+        <circle cx="37.5" cy="50" r="3.6" fill="var(--tag)" stroke="var(--ink)" stroke-width="2"/>
+      </g>
+    </svg>
+    <p class="name">C · 시바</p>
+    <p class="why">등 위로 말린 꼬리가 옆모습에서 바로 읽힌다. 뾰족 귀 + 다부진 몸.</p>
+    <div class="small"><span>46pt</span><span class="slot" data-src="vC" data-h="46"></span><span>32pt</span><span class="slot" data-src="vC" data-h="32"></span></div>
+  </div>
+
+  <!-- D. 플랫: 윤곽선 없이 면으로만 -->
+  <div class="card">
+    <svg class="big" viewBox="0 0 108 76" id="vD">
+      <g stroke-linecap="round">
+        <g stroke="#B98A57" stroke-width="8" fill="none">
+          <line x1="26" y1="52" x2="20" y2="64"/><line x1="38" y1="54" x2="34" y2="66"/>
+          <line x1="52" y1="54" x2="58" y2="66"/><line x1="62" y1="52" x2="70" y2="64"/>
+        </g>
+        <path d="M18 36 Q6 30 8 18" stroke="#C99A64" stroke-width="9" fill="none"/>
+        <ellipse cx="42" cy="38" rx="25" ry="16" fill="var(--fur)"/>
+        <path d="M34 26 Q37 38 35 48" stroke="var(--collar)" stroke-width="7" fill="none"/>
+        <circle cx="74" cy="26" r="18" fill="var(--fur)"/>
+        <path d="M68 12 Q52 16 53 36 Q61 45 70 30 Z" fill="#C99A64"/>
+        <ellipse cx="95" cy="32" rx="12" ry="9" fill="#F7E0C2"/>
+        <circle cx="102" cy="29" r="3.6" fill="var(--ink)"/>
+        <circle cx="80" cy="22" r="2.8" fill="var(--ink)"/>
+        <circle cx="35.5" cy="50" r="3.6" fill="var(--tag)"/>
+      </g>
+    </svg>
+    <p class="name">D · 플랫</p>
+    <p class="why">윤곽선을 없애고 면과 명도차로만. 작은 크기에서 뭉개짐이 가장 적다.</p>
+    <div class="small"><span>46pt</span><span class="slot" data-src="vD" data-h="46"></span><span>32pt</span><span class="slot" data-src="vD" data-h="32"></span></div>
+  </div>
+
+  <!-- E. 치비: 머리가 몸만큼 큰 과장 -->
+  <div class="card">
+    <svg class="big" viewBox="0 0 108 76" id="vE">
+      <g stroke-linecap="round" stroke-linejoin="round">
+        <g stroke="var(--ink)" stroke-width="6.5" fill="none">
+          <line x1="24" y1="54" x2="20" y2="64"/><line x1="34" y1="56" x2="32" y2="66"/>
+          <line x1="44" y1="56" x2="47" y2="66"/><line x1="52" y1="54" x2="57" y2="64"/>
+        </g>
+        <path d="M16 40 Q6 34 8 24" stroke="var(--fur-dark)" stroke-width="7" fill="none"/>
+        <ellipse cx="38" cy="44" rx="20" ry="13" fill="var(--fur)" stroke="var(--ink)" stroke-width="3"/>
+        <path d="M34 32 Q37 44 35 54" stroke="var(--collar)" stroke-width="6" fill="none"/>
+        <circle cx="72" cy="26" r="23" fill="var(--fur)" stroke="var(--ink)" stroke-width="3"/>
+        <path d="M64 8 Q48 12 50 34 Q58 44 68 28 Z" fill="var(--fur-dark)" stroke="var(--ink)" stroke-width="3"/>
+        <ellipse cx="94" cy="32" rx="13" ry="9.5" fill="var(--fur)" stroke="var(--ink)" stroke-width="3"/>
+        <circle cx="101" cy="28" r="3.6" fill="var(--ink)"/>
+        <circle cx="79" cy="21" r="3.2" fill="var(--ink)"/>
+        <circle cx="35.5" cy="56" r="3.6" fill="var(--tag)" stroke="var(--ink)" stroke-width="2"/>
+      </g>
+    </svg>
+    <p class="name">E · 치비</p>
+    <p class="why">머리를 몸만큼 키운 과장. 귀여움은 대부분 머리:몸 비율에서 나온다.</p>
+    <div class="small"><span>46pt</span><span class="slot" data-src="vE" data-h="46"></span><span>32pt</span><span class="slot" data-src="vE" data-h="32"></span></div>
+  </div>
+
+</div>
+
+<script>
+  // 각 후보를 실제 사용 크기로 복제한다. 최종 소비처는 46pt 라서,
+  // 큰 그림만 보고 고르면 반드시 다시 고르게 된다.
+  for (const slot of document.querySelectorAll('.slot')) {
+    const src = document.getElementById(slot.dataset.src);
+    const clone = src.cloneNode(true);
+    clone.removeAttribute('id');
+    clone.removeAttribute('class');
+    clone.setAttribute('height', slot.dataset.h);
+    clone.setAttribute('width', slot.dataset.h * 108 / 76);
+    slot.replaceWith(clone);
+  }
+</script>

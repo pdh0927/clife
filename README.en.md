@@ -146,7 +146,7 @@ Numbers alone leave "is that fine?" for the reader to work out, every time, from
 
 The dog at the top of the dropdown speaks for **whichever limit is closest to stopping you**, not the first one. Three dogs would make you pick which to believe, which is the opposite of glanceable. The other rows just mark their position with a paw print.
 
-The art is `design/dog/states.html` ported into `src/dog.swift`. The SVG there is deliberately restricted to ellipses, round-capped strokes and quadratic curves — each with a direct `NSBezierPath` equivalent — so the two cannot quietly drift apart. A hand port is exactly the kind of work that compiles cleanly while drawing the wrong thing, so the means to look at it ships too:
+The silhouette is the one candidate out of five in `design/dog/variants.html` still legible as a dog at 46pt — a hanging ear and a muzzle outside the head circle are the two features that survive being shrunk. The art is `design/dog/states.html` ported into `src/dog.swift`. The SVG there is deliberately restricted to ellipses, round-capped strokes and quadratic curves — each with a direct `NSBezierPath` equivalent — so the two cannot quietly drift apart. A hand port is exactly the kind of work that compiles cleanly while drawing the wrong thing, so the means to look at it ships too:
 
 ```sh
 ./Clife.app/Contents/MacOS/Clife --dogsheet /tmp/dog.png

@@ -66,8 +66,8 @@ enum DogArt {
     /// body box -- a flying ear goes to y = -4, the tail to x = -4, a stretched hind
     /// leg to y = 47. Sized to the extremes with a margin so nothing is clipped at
     /// the one moment it matters, which is the pose where the ear is flying.
-    static let box = NSSize(width: 70, height: 58)
-    private static let contentOffset = CGPoint(x: 5, y: 5)
+    static let box = NSSize(width: 112, height: 82)
+    private static let contentOffset = CGPoint(x: 2, y: 2)
 
     // MARK: Pose data
 
@@ -98,96 +98,102 @@ enum DogArt {
     }
 
     private static func pose(for mood: DogMood) -> Pose {
+        // Coordinates are lifted straight from design/dog/states.html -- the B silhouette,
+        // picked because it was the only candidate still legible as a dog at 46pt. The two
+        // features doing that work are the ear hanging behind the head and the muzzle
+        // sitting outside the head circle; an earlier pass buried the muzzle inside the
+        // head and the whole thing read as a sheep.
         switch mood {
         case .energetic:
             return Pose(
-                legs: [(CGPoint(x: 13, y: 31), CGPoint(x: 3,  y: 45)),
-                       (CGPoint(x: 21, y: 32), CGPoint(x: 17, y: 47)),
-                       (CGPoint(x: 34, y: 32), CGPoint(x: 43, y: 46)),
-                       (CGPoint(x: 40, y: 31), CGPoint(x: 52, y: 44))],
-                legsAlt: [(CGPoint(x: 13, y: 31), CGPoint(x: 11, y: 42)),
-                          (CGPoint(x: 21, y: 32), CGPoint(x: 23, y: 43)),
-                          (CGPoint(x: 34, y: 32), CGPoint(x: 33, y: 43)),
-                          (CGPoint(x: 40, y: 31), CGPoint(x: 43, y: 41))],
+                legs: [(CGPoint(x: 26, y: 54), CGPoint(x: 14, y: 72)),
+                       (CGPoint(x: 38, y: 56), CGPoint(x: 28, y: 76)),
+                       (CGPoint(x: 52, y: 56), CGPoint(x: 64, y: 76)),
+                       (CGPoint(x: 62, y: 54), CGPoint(x: 78, y: 70))],
+                legsAlt: [(CGPoint(x: 26, y: 54), CGPoint(x: 22, y: 68)),
+                          (CGPoint(x: 38, y: 56), CGPoint(x: 36, y: 70)),
+                          (CGPoint(x: 52, y: 56), CGPoint(x: 54, y: 70)),
+                          (CGPoint(x: 62, y: 54), CGPoint(x: 66, y: 68))],
                 kicksDust: true,
-                tail: (CGPoint(x: 9, y: 21), CGPoint(x: -4, y: 15), CGPoint(x: -2, y: 3)),
-                bodyCenter: CGPoint(x: 26, y: 24), bodyRadii: CGSize(width: 19, height: 11),
-                headCenter: CGPoint(x: 46, y: 14),
-                ear: (CGPoint(x: 43, y: 7), CGPoint(x: 34, y: -4), CGPoint(x: 29, y: 2),
-                      CGPoint(x: 34, y: 9), CGPoint(x: 41, y: 13)),
-                muzzleCenter: CGPoint(x: 55, y: 17), noseCenter: CGPoint(x: 59, y: 16),
-                eyeArc: (CGPoint(x: 45, y: 11), CGPoint(x: 48, y: 8), CGPoint(x: 51, y: 11)),
+                tail: (CGPoint(x: 18, y: 38), CGPoint(x: 4, y: 30), CGPoint(x: 6, y: 14)),
+                bodyCenter: CGPoint(x: 42, y: 40), bodyRadii: CGSize(width: 24, height: 15),
+                headCenter: CGPoint(x: 74, y: 28),
+                ear: (CGPoint(x: 68, y: 13), CGPoint(x: 52, y: 8), CGPoint(x: 50, y: 26),
+                      CGPoint(x: 58, y: 38), CGPoint(x: 70, y: 30)),
+                muzzleCenter: CGPoint(x: 94, y: 34), noseCenter: CGPoint(x: 101, y: 31),
+                eyeArc: (CGPoint(x: 79, y: 23), CGPoint(x: 83, y: 19), CGPoint(x: 87, y: 23)),
                 eyeDot: nil, tongue: nil,
-                collar: (CGPoint(x: 37, y: 13), CGPoint(x: 40, y: 21), CGPoint(x: 38, y: 28)),
-                tagCenter: CGPoint(x: 38.5, y: 30), sweat: [])
+                collar: (CGPoint(x: 34, y: 28), CGPoint(x: 37, y: 40), CGPoint(x: 35, y: 50)),
+                tagCenter: CGPoint(x: 35.5, y: 52), sweat: [])
 
         case .steady:
             return Pose(
-                legs: [(CGPoint(x: 14, y: 31), CGPoint(x: 9,  y: 44)),
-                       (CGPoint(x: 22, y: 32), CGPoint(x: 21, y: 45)),
-                       (CGPoint(x: 33, y: 32), CGPoint(x: 36, y: 45)),
-                       (CGPoint(x: 40, y: 31), CGPoint(x: 46, y: 43))],
-                legsAlt: [(CGPoint(x: 14, y: 31), CGPoint(x: 17, y: 42)),
-                          (CGPoint(x: 22, y: 32), CGPoint(x: 26, y: 42)),
-                          (CGPoint(x: 33, y: 32), CGPoint(x: 30, y: 43)),
-                          (CGPoint(x: 40, y: 31), CGPoint(x: 39, y: 42))],
+                legs: [(CGPoint(x: 27, y: 54), CGPoint(x: 20, y: 72)),
+                       (CGPoint(x: 39, y: 56), CGPoint(x: 35, y: 74)),
+                       (CGPoint(x: 51, y: 56), CGPoint(x: 55, y: 74)),
+                       (CGPoint(x: 62, y: 54), CGPoint(x: 70, y: 71))],
+                legsAlt: [(CGPoint(x: 27, y: 54), CGPoint(x: 25, y: 68)),
+                          (CGPoint(x: 39, y: 56), CGPoint(x: 40, y: 69)),
+                          (CGPoint(x: 51, y: 56), CGPoint(x: 50, y: 69)),
+                          (CGPoint(x: 62, y: 54), CGPoint(x: 64, y: 68))],
                 kicksDust: true,
-                tail: (CGPoint(x: 9, y: 21), CGPoint(x: -2, y: 17), CGPoint(x: -1, y: 8)),
-                bodyCenter: CGPoint(x: 26, y: 24), bodyRadii: CGSize(width: 19, height: 11),
-                headCenter: CGPoint(x: 46, y: 14),
-                ear: (CGPoint(x: 43, y: 8), CGPoint(x: 33, y: 4), CGPoint(x: 31, y: 11),
-                      CGPoint(x: 36, y: 16), CGPoint(x: 42, y: 14)),
-                muzzleCenter: CGPoint(x: 55, y: 17), noseCenter: CGPoint(x: 59, y: 16),
-                eyeArc: nil, eyeDot: CGPoint(x: 47, y: 12), tongue: nil,
-                collar: (CGPoint(x: 37, y: 13), CGPoint(x: 40, y: 21), CGPoint(x: 38, y: 28)),
-                tagCenter: CGPoint(x: 38.5, y: 30), sweat: [])
+                tail: (CGPoint(x: 18, y: 38), CGPoint(x: 5, y: 33), CGPoint(x: 6, y: 20)),
+                bodyCenter: CGPoint(x: 42, y: 40), bodyRadii: CGSize(width: 24, height: 15),
+                headCenter: CGPoint(x: 74, y: 28),
+                ear: (CGPoint(x: 68, y: 14), CGPoint(x: 52, y: 17), CGPoint(x: 53, y: 36),
+                      CGPoint(x: 61, y: 45), CGPoint(x: 70, y: 31)),
+                muzzleCenter: CGPoint(x: 94, y: 34), noseCenter: CGPoint(x: 101, y: 31),
+                eyeArc: nil, eyeDot: CGPoint(x: 82, y: 24), tongue: nil,
+                collar: (CGPoint(x: 34, y: 28), CGPoint(x: 37, y: 40), CGPoint(x: 35, y: 50)),
+                tagCenter: CGPoint(x: 35.5, y: 52), sweat: [])
 
         case .tired:
             return Pose(
-                legs: [(CGPoint(x: 15, y: 30), CGPoint(x: 13, y: 41)),
-                       (CGPoint(x: 23, y: 31), CGPoint(x: 23, y: 42)),
-                       (CGPoint(x: 32, y: 31), CGPoint(x: 33, y: 42)),
-                       (CGPoint(x: 39, y: 30), CGPoint(x: 41, y: 41))],
-                legsAlt: [(CGPoint(x: 15, y: 30), CGPoint(x: 17, y: 40)),
-                          (CGPoint(x: 23, y: 31), CGPoint(x: 20, y: 41)),
-                          (CGPoint(x: 32, y: 31), CGPoint(x: 35, y: 41)),
-                          (CGPoint(x: 39, y: 30), CGPoint(x: 38, y: 40))],
+                legs: [(CGPoint(x: 28, y: 56), CGPoint(x: 26, y: 72)),
+                       (CGPoint(x: 40, y: 58), CGPoint(x: 40, y: 74)),
+                       (CGPoint(x: 50, y: 58), CGPoint(x: 51, y: 74)),
+                       (CGPoint(x: 61, y: 56), CGPoint(x: 64, y: 72))],
+                legsAlt: [(CGPoint(x: 28, y: 56), CGPoint(x: 30, y: 71)),
+                          (CGPoint(x: 40, y: 58), CGPoint(x: 37, y: 73)),
+                          (CGPoint(x: 50, y: 58), CGPoint(x: 54, y: 73)),
+                          (CGPoint(x: 61, y: 56), CGPoint(x: 60, y: 71))],
                 kicksDust: false,
-                tail: (CGPoint(x: 9, y: 22), CGPoint(x: 1, y: 23), CGPoint(x: -1, y: 30)),
-                bodyCenter: CGPoint(x: 26, y: 24), bodyRadii: CGSize(width: 19, height: 11),
-                headCenter: CGPoint(x: 46, y: 16),
-                ear: (CGPoint(x: 43, y: 11), CGPoint(x: 34, y: 14), CGPoint(x: 34, y: 23),
-                      CGPoint(x: 40, y: 26), CGPoint(x: 44, y: 18)),
-                muzzleCenter: CGPoint(x: 55, y: 19), noseCenter: CGPoint(x: 59, y: 18),
-                eyeArc: (CGPoint(x: 44, y: 13), CGPoint(x: 47, y: 16), CGPoint(x: 50, y: 13)),
+                tail: (CGPoint(x: 18, y: 42), CGPoint(x: 6, y: 44), CGPoint(x: 3, y: 54)),
+                bodyCenter: CGPoint(x: 42, y: 43), bodyRadii: CGSize(width: 24, height: 15),
+                headCenter: CGPoint(x: 74, y: 32),
+                ear: (CGPoint(x: 68, y: 19), CGPoint(x: 53, y: 24), CGPoint(x: 55, y: 44),
+                      CGPoint(x: 63, y: 52), CGPoint(x: 71, y: 36)),
+                muzzleCenter: CGPoint(x: 94, y: 38), noseCenter: CGPoint(x: 101, y: 35),
+                eyeArc: (CGPoint(x: 79, y: 29), CGPoint(x: 83, y: 33), CGPoint(x: 87, y: 29)),
                 eyeDot: nil,
-                tongue: (CGPoint(x: 55, y: 23), CGPoint(x: 56, y: 28), CGPoint(x: 53, y: 29)),
-                collar: (CGPoint(x: 37, y: 15), CGPoint(x: 40, y: 23), CGPoint(x: 38, y: 30)),
-                tagCenter: CGPoint(x: 38.5, y: 32), sweat: [])
+                tongue: (CGPoint(x: 94, y: 45), CGPoint(x: 96, y: 53), CGPoint(x: 90, y: 54)),
+                collar: (CGPoint(x: 34, y: 31), CGPoint(x: 37, y: 43), CGPoint(x: 35, y: 53)),
+                tagCenter: CGPoint(x: 35.5, y: 55), sweat: [])
 
         case .spent:
-            // Hind legs fold under the body, so only three show. Drawing a fourth
-            // would read as standing, which is the one thing this pose must not say.
+            // Hind legs fold under the body, so only three show. A fourth would read as
+            // standing, which is the one thing this pose must not say. No stride either --
+            // the bob in draw() becomes breathing rather than running.
             return Pose(
-                legs: [(CGPoint(x: 17, y: 31), CGPoint(x: 15, y: 39)),
-                       (CGPoint(x: 34, y: 29), CGPoint(x: 35, y: 39)),
-                       (CGPoint(x: 40, y: 28), CGPoint(x: 42, y: 39))],
-                legsAlt: [(CGPoint(x: 17, y: 31), CGPoint(x: 15, y: 39)),
-                          (CGPoint(x: 34, y: 29), CGPoint(x: 35, y: 39)),
-                          (CGPoint(x: 40, y: 28), CGPoint(x: 42, y: 39))],
+                legs: [(CGPoint(x: 30, y: 58), CGPoint(x: 28, y: 70)),
+                       (CGPoint(x: 52, y: 56), CGPoint(x: 53, y: 72)),
+                       (CGPoint(x: 61, y: 54), CGPoint(x: 64, y: 72))],
+                legsAlt: [(CGPoint(x: 30, y: 58), CGPoint(x: 28, y: 70)),
+                          (CGPoint(x: 52, y: 56), CGPoint(x: 53, y: 72)),
+                          (CGPoint(x: 61, y: 54), CGPoint(x: 64, y: 72))],
                 kicksDust: false,
-                tail: (CGPoint(x: 9, y: 26), CGPoint(x: 2, y: 30), CGPoint(x: 4, y: 35)),
-                bodyCenter: CGPoint(x: 26, y: 26), bodyRadii: CGSize(width: 19, height: 12),
-                headCenter: CGPoint(x: 46, y: 19),
-                ear: (CGPoint(x: 43, y: 14), CGPoint(x: 34, y: 18), CGPoint(x: 35, y: 27),
-                      CGPoint(x: 41, y: 30), CGPoint(x: 44, y: 21)),
-                muzzleCenter: CGPoint(x: 55, y: 22), noseCenter: CGPoint(x: 59, y: 21),
-                eyeArc: (CGPoint(x: 43, y: 16), CGPoint(x: 46, y: 19), CGPoint(x: 49, y: 16)),
+                tail: (CGPoint(x: 18, y: 48), CGPoint(x: 6, y: 52), CGPoint(x: 8, y: 60)),
+                bodyCenter: CGPoint(x: 42, y: 47), bodyRadii: CGSize(width: 24, height: 16),
+                headCenter: CGPoint(x: 74, y: 36),
+                ear: (CGPoint(x: 68, y: 23), CGPoint(x: 53, y: 29), CGPoint(x: 55, y: 48),
+                      CGPoint(x: 63, y: 56), CGPoint(x: 71, y: 40)),
+                muzzleCenter: CGPoint(x: 94, y: 42), noseCenter: CGPoint(x: 101, y: 39),
+                eyeArc: (CGPoint(x: 79, y: 33), CGPoint(x: 83, y: 37), CGPoint(x: 87, y: 33)),
                 eyeDot: nil,
-                tongue: (CGPoint(x: 55, y: 26), CGPoint(x: 56, y: 32), CGPoint(x: 52, y: 33)),
-                collar: (CGPoint(x: 37, y: 18), CGPoint(x: 40, y: 26), CGPoint(x: 38, y: 33)),
-                tagCenter: CGPoint(x: 38.5, y: 35),
-                sweat: [(CGPoint(x: 36, y: 6), 2), (CGPoint(x: 42, y: 2), 1.5)])
+                tongue: (CGPoint(x: 94, y: 49), CGPoint(x: 96, y: 58), CGPoint(x: 89, y: 59)),
+                collar: (CGPoint(x: 34, y: 35), CGPoint(x: 37, y: 47), CGPoint(x: 35, y: 57)),
+                tagCenter: CGPoint(x: 35.5, y: 59),
+                sweat: [(CGPoint(x: 60, y: 12), 2.8), (CGPoint(x: 68, y: 5), 2.1)])
         }
     }
 
@@ -213,7 +219,7 @@ enum DogArt {
                                     width: radii.width * 2, height: radii.height * 2))
     }
 
-    private static func filled(_ path: NSBezierPath, _ fill: NSColor, outline: CGFloat = 2.5) {
+    private static func filled(_ path: NSBezierPath, _ fill: NSColor, outline: CGFloat = 3) {
         fill.setFill()
         path.fill()
         stroke(path, ink, outline)
@@ -276,31 +282,31 @@ enum DogArt {
         for (a, b) in p.legs {
             let leg = NSBezierPath()
             leg.move(to: a); leg.line(to: b)
-            stroke(leg, ink, 4.6)
+            stroke(leg, ink, 6.5)
         }
-        stroke(quad(p.tail.from, p.tail.control, p.tail.to), furDark, 5.5)
+        stroke(quad(p.tail.from, p.tail.control, p.tail.to), furDark, 7)
 
         filled(oval(p.bodyCenter, p.bodyRadii), fur)
-        filled(oval(p.headCenter, CGSize(width: 11, height: 11)), fur)
+        filled(oval(p.headCenter, CGSize(width: 17, height: 17)), fur)
 
         let ear = NSBezierPath()
         ear.move(to: p.ear.root)
         ear.curve(to: p.ear.mid, controlPoint1: p.ear.c1, controlPoint2: p.ear.c1)
         ear.curve(to: p.ear.back, controlPoint1: p.ear.c2, controlPoint2: p.ear.c2)
         ear.close()
-        filled(ear, furDark, outline: 2.2)
+        filled(ear, furDark, outline: 3)
 
-        filled(oval(p.muzzleCenter, CGSize(width: 6, height: 4.5)), fur)
+        filled(oval(p.muzzleCenter, CGSize(width: 12, height: 8.5)), fur)
         ink.setFill()
-        oval(p.noseCenter, CGSize(width: 2.2, height: 2.2)).fill()
+        oval(p.noseCenter, CGSize(width: 3.4, height: 3.4)).fill()
 
-        if let arc = p.eyeArc { stroke(quad(arc.from, arc.control, arc.to), ink, 2.2) }
-        if let dot = p.eyeDot { ink.setFill(); oval(dot, CGSize(width: 1.9, height: 1.9)).fill() }
-        if let t = p.tongue { stroke(quad(t.from, t.control, t.to), collar, 3.4) }
+        if let arc = p.eyeArc { stroke(quad(arc.from, arc.control, arc.to), ink, 3) }
+        if let dot = p.eyeDot { ink.setFill(); oval(dot, CGSize(width: 3, height: 3)).fill() }
+        if let t = p.tongue { stroke(quad(t.from, t.control, t.to), collar, 5) }
 
-        stroke(quad(p.collar.from, p.collar.control, p.collar.to), collar, 5)
-        let tagPath = oval(p.tagCenter, CGSize(width: 2.7, height: 2.7))
-        tag.setFill(); tagPath.fill(); stroke(tagPath, ink, 1.6)
+        stroke(quad(p.collar.from, p.collar.control, p.collar.to), collar, 6)
+        let tagPath = oval(p.tagCenter, CGSize(width: 3.6, height: 3.6))
+        tag.setFill(); tagPath.fill(); stroke(tagPath, ink, 2)
 
         for (center, radius) in p.sweat {
             sweat.setFill()
@@ -313,8 +319,8 @@ enum DogArt {
         if p.kicksDust, let rear = p.legs.first {
             for offset in [CGFloat(0), 0.5] {
                 let life = (phase + offset).truncatingRemainder(dividingBy: 1)
-                let radius = 1.8 + life * 4.6
-                let center = CGPoint(x: rear.1.x - 3 - life * 11, y: rear.1.y + 1 - life * 3)
+                let radius = 2.6 + life * 6.5
+                let center = CGPoint(x: rear.1.x - 5 - life * 17, y: rear.1.y + 1 - life * 5)
                 furDark.withAlphaComponent(0.52 * (1 - life)).setFill()
                 oval(center, CGSize(width: radius, height: radius)).fill()
             }

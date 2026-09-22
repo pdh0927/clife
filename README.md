@@ -146,7 +146,7 @@ ln -sf "$PWD/raycast/claude-usage.py" ~/workspace/raycast/claude-usage.py
 
 드롭다운 맨 위의 강아지는 **가장 먼저 막히는 한도** 하나만 대변한다. 세 마리를 세우면 어느 걸 봐야 하는지 다시 고민하게 되고, 그건 흘끗 보고 안다는 목적과 정반대다. 나머지 줄은 트랙 위 발자국으로 각자의 위치만 찍는다.
 
-그림은 `design/dog/states.html` 의 SVG를 `src/dog.swift` 로 옮긴 것이다. 시안 쪽 도형을 원·타원·둥근 선·2차 곡선으로 제한해둔 덕에 `NSBezierPath` 에 1:1로 대응하고, 덕분에 둘이 조용히 갈라지지 않는다. 포팅 결과는 눈으로 확인해야 하므로 그 수단도 코드에 있다:
+실루엣은 `design/dog/variants.html` 의 후보 5안 중 46pt로 줄였을 때 개로 읽히는 유일한 안(B·비글)이다 — 늘어진 귀와 머리 밖으로 나온 주둥이, 그 둘이 작은 크기에서 살아남는 특징이다. 그림은 `design/dog/states.html` 의 SVG를 `src/dog.swift` 로 옮긴 것이다. 시안 쪽 도형을 원·타원·둥근 선·2차 곡선으로 제한해둔 덕에 `NSBezierPath` 에 1:1로 대응하고, 덕분에 둘이 조용히 갈라지지 않는다. 포팅 결과는 눈으로 확인해야 하므로 그 수단도 코드에 있다:
 
 ```sh
 ./Clife.app/Contents/MacOS/Clife --dogsheet /tmp/dog.png
