@@ -1655,6 +1655,35 @@ private func selfTest() -> Never {
     precondition(AppDelegate.relativeReset(Date().addingTimeInterval(-60)) == "곧 초기화")
     precondition(AppDelegate.relativeReset(nil) == "-")
 
+    // The widget lands on grid slots, not wherever it was dropped. Measured from the
+    // top-left of the usable area, because the bottom moves with the Dock.
+    let desk = NSRect(x: 0, y: 0, width: 1512, height: 949)
+    let card = NSSize(width: 268, height: 252)
+    // Nudged a few points off slot (1, 0): must come back to it exactly.
+    let near = NSRect(origin: NSPoint(x: 16 + 174 + 9, y: 949 - 16 - 252 - 7), size: card)
+    let snapped = DesktopWidget.snapped(near, in: desk)
+    precondition(snapped.x == 16 + 174, "\(snapped)")
+    precondition(snapped.y + card.height == 949 - 16, "top edge must land on the first row: \(snapped)")
+    // Dropped off the right edge: pulled back to the last spot that fits, not to a
+    // slot that would hang off the screen.
+    let off = NSRect(origin: NSPoint(x: 1490, y: 400), size: card)
+    precondition(DesktopWidget.snapped(off, in: desk).x == 1512 - 16 - 268,
+                 "\(DesktopWidget.snapped(off, in: desk))")
+    // ...and off the bottom: the whole card stays on screen.
+    let low = NSRect(origin: NSPoint(x: 100, y: -300), size: card)
+    precondition(DesktopWidget.snapped(low, in: desk).y == 16)
+
+    // Every corner must be a fixed point. The snap runs on each data refresh -- that
+    // is what rescues a position saved before the grid existed -- so if a corner were
+    // not stable under it, choosing "우측 상단" would drift off the edge a minute later.
+    for corner in [NSPoint(x: 16, y: 949 - 16 - card.height),
+                   NSPoint(x: 1512 - 16 - card.width, y: 949 - 16 - card.height),
+                   NSPoint(x: 16, y: 16),
+                   NSPoint(x: 1512 - 16 - card.width, y: 16)] {
+        let again = DesktopWidget.snapped(NSRect(origin: corner, size: card), in: desk)
+        precondition(again == corner, "corner \(corner) moved to \(again)")
+    }
+
     // A 429's Retry-After is a floor: never retry sooner than the server said.
     precondition(AppDelegate.cooldownForTest(.rateLimited(retryAfter: 296), attempt: 1) == 296)
     // ...but never trust it as a ceiling either. The endpoint really does answer

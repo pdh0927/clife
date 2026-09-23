@@ -213,7 +213,13 @@ Hiding the menu bar icon also stops the global mouse monitor. It exists to prefe
 
 Settings → **바탕화면 위젯**. The same dog and the same limits, parked on the desktop. Like Weather or Reminders it sits **above the desktop icons** and slides under any real window.
 
-Two ways to move it: drag, or pick one of four corners under Settings → **위젯 위치**. Both are saved and restored on next launch. The corner presets exist because a desktop-level window is the hardest kind to grab — anything on top of it takes the click, so "just drag it" can be advice you cannot follow. The corner is on whichever screen the pointer is on.
+**It lands on a slot, not wherever it was dropped.** System widgets do not go down at an arbitrary pixel either, and that is most of what makes one read as furniture rather than as a window that happens to be behind everything. The grid runs from the **top-left** of the usable area, because that is the edge that stays put: the bottom moves when the Dock appears and the right moves when the display changes, and anchoring to either is back to floating. Cells are 158pt with a 16pt gutter — the system's own numbers for a small widget.
+
+Two ways to move it: drag and let go, or pick one of four corners under Settings → **위젯 위치**. The corner presets exist because a desktop-level window is the hardest kind to grab — anything on top of it takes the click, so "just drag it" can be advice you cannot follow. The corner is on whichever screen the pointer is on.
+
+**All four corners are fixed points of the snap.** A slot that would hang off an edge is pulled back to the last position that fits, and that pull lands exactly on the corner. So re-snapping is safe to do unconditionally, and it is — which is how a position saved before the grid existed, or on a display layout that has since changed, finds its way back onto a slot.
+
+The height varies with the number of limit rows, so it **grows downward from a fixed top edge**. Keeping the origin fixed instead would move the top every time the API returned a different number of rows, and the widget would walk off its slot on its own.
 
 It is **not** a WidgetKit extension. That would need a second bundle, real provisioning and a notarised parent app, and this project signs ad-hoc on purpose (see `build.sh`) — an unsigned widget extension simply never loads. A borderless `NSPanel` pinned just above the desktop *icon* level reaches the same place, with no signing story at all. One level above the desktop picture is not enough: Finder draws the icons in their own window above that one, and a widget with a folder on top of it is a widget you cannot read.
 

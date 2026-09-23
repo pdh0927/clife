@@ -2,19 +2,6 @@ import Cocoa
 
 // MARK: - Desktop widget
 
-/// A panel that lives on the desktop, showing the same dog and the same limits.
-///
-/// Deliberately *not* a WidgetKit extension. That would mean a second bundle, a real
-/// provisioning profile and a notarised parent app; this project signs ad-hoc on
-/// purpose (see build.sh), and an unsigned widget extension simply never loads. A
-/// borderless panel pinned to the desktop window level gets to the same place --
-/// visible when the desktop is, invisible when something covers it -- with no
-/// signing story at all.
-///
-/// The content is the menu's own `DogHeaderView` and `UsageRowView`, not a
-/// reimplementation. Two copies of this layout would drift the first time either one
-/// was touched, and then the widget and the dropdown would disagree about the same
-/// numbers, which is worse than not having a widget.
 /// Where the widget parks. Named corners rather than only free dragging, because a
 /// window at desktop level is the hardest kind to grab: anything on top of it takes
 /// the click, so "just drag it" can be advice the user cannot follow.
@@ -31,15 +18,37 @@ enum WidgetCorner: String, CaseIterable {
     }
 }
 
+/// A panel that lives on the desktop, showing the same dog and the same limits.
+///
+/// Deliberately *not* a WidgetKit extension. That would mean a second bundle, a real
+/// provisioning profile and a notarised parent app; this project signs ad-hoc on
+/// purpose (see build.sh), and an unsigned widget extension simply never loads. A
+/// borderless panel pinned just above the desktop icons gets to the same place --
+/// visible when the desktop is, covered when something is over it -- with no signing
+/// story at all. It lands on a grid rather than wherever it was dropped, which is
+/// most of what separates a widget from a window that happens to be behind things.
+///
+/// The content is the menu's own `DogHeaderView` and `UsageRowView`, not a
+/// reimplementation. Two copies of this layout would drift the first time either one
+/// was touched, and then the widget and the dropdown would disagree about the same
+/// numbers, which is worse than not having a widget.
 final class DesktopWidget {
     private static let visibleKey = "widgetVisible"
     private static let originKey  = "widgetOrigin"
     private static let width: CGFloat = 268
     private static let headerHeight: CGFloat = 68
     private static let rowHeight: CGFloat = 54
-    private static let margin: CGFloat = 24
     /// Matches the dog's slot in `DogHeaderView`; the coverage test uses it.
     private static let dogWidth: CGFloat = 86
+
+    /// Desktop widget grid, measured from the top-left of the usable screen.
+    ///
+    /// A system widget cannot be dropped at an arbitrary pixel -- it lands on a slot,
+    /// which is most of what makes it read as furniture rather than as a window that
+    /// happens to be behind everything. These are the system's own numbers for a
+    /// small widget: a 158pt cell with a 16pt gutter.
+    private static let gridPitch: CGFloat = 174
+    private static let gridMargin: CGFloat = 16
 
     private var panel: NSPanel?
     private var header: DogHeaderView?
@@ -185,21 +194,96 @@ final class DesktopWidget {
         if inside { refreshExposure() }
     }
 
+    /// Snap the panel onto the nearest grid slot, and keep it fully on screen.
+    ///
+    /// The grid runs from the top-left of the visible area, because that is the edge
+    /// that stays put: the bottom moves when the Dock appears and the right moves when
+    /// the display changes, and a widget that drifts on either is back to floating.
+    /// The panel's own height varies with the number of limit rows, so it is the *top*
+    /// edge that lands on a row line, not the origin.
+    private func snapToGrid(_ panel: NSPanel) {
+        let frame = panel.frame
+        guard let screen = NSScreen.screens.first(where: { $0.frame.intersects(frame) })
+                ?? NSScreen.main
+        else { return }
+        withoutSnapping { panel.setFrameOrigin(Self.snapped(frame, in: screen.visibleFrame)) }
+    }
+
+    /// The arithmetic on its own, so it can be checked without a window or a display.
+    static func snapped(_ frame: NSRect, in area: NSRect) -> NSPoint {
+        let pitch = gridPitch, inset = gridMargin
+        let column = ((frame.minX - area.minX - inset) / pitch).rounded()
+        let row = ((area.maxY - inset - frame.maxY) / pitch).rounded()
+
+        // Clamp after snapping, not before: a slot that would hang off the edge gets
+        // pulled back to the last position that fits, rather than snapping to nothing.
+        let x = min(max(area.minX + inset + column * pitch, area.minX + inset),
+                    area.maxX - inset - frame.width)
+        let top = min(max(area.maxY - inset - row * pitch, area.minY + inset + frame.height),
+                      area.maxY - inset)
+        return NSPoint(x: x, y: top - frame.height)
+    }
+
+    /// Snap once the drag is actually over.
+    ///
+    /// `isMovableByWindowBackground` gives no "finished moving" notification, only a
+    /// stream of `didMove` while the pointer travels -- and snapping on each of those
+    /// would fight the drag. So: debounce, and if the button is still down, the user
+    /// has merely paused. Wait for them to let go.
+    private var snapWork: DispatchWorkItem?
+
+    /// Set while the code is moving the panel itself.
+    ///
+    /// A programmatic move emits `didMove` exactly like a drag does, and treating it
+    /// as one would snap a corner placement onto the grid a fifth of a second after
+    /// the user chose the corner -- and re-snap on every data refresh besides, since
+    /// the panel resizes whenever the row count changes. The `didMove` observer is
+    /// registered with `queue: nil` so it runs synchronously on the posting thread;
+    /// with an operation queue the flag would already be back to false by the time
+    /// the block ran.
+    private var movingProgrammatically = false
+
+    private func withoutSnapping(_ body: () -> Void) {
+        movingProgrammatically = true
+        body()
+        movingProgrammatically = false
+    }
+
+    private func scheduleSnap(_ panel: NSPanel) {
+        guard !movingProgrammatically else { return }
+        snapWork?.cancel()
+        let work = DispatchWorkItem { [weak self, weak panel] in
+            guard let self, let panel else { return }
+            guard NSEvent.pressedMouseButtons == 0 else { self.scheduleSnap(panel); return }
+            self.snapToGrid(panel)
+            self.saveOrigin(panel)
+            self.refreshExposure()
+        }
+        snapWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: work)
+    }
+
     /// Park in a named corner of whichever screen the pointer is on, so "put it top
     /// right" means the display being looked at rather than always the primary one.
+    ///
+    /// Corners deliberately do not go through the grid. They are the four extremes,
+    /// and rounding "top right" to the nearest column could leave it most of a cell
+    /// short of the edge -- which is not what anyone means by the corner.
     func move(to corner: WidgetCorner) {
         guard let panel else { return }
         let screen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) }
             ?? NSScreen.main ?? NSScreen.screens[0]
         let area = screen.visibleFrame
         let size = panel.frame.size
+        let inset = Self.gridMargin
         let x = corner == .topLeft || corner == .bottomLeft
-            ? area.minX + Self.margin
-            : area.maxX - size.width - Self.margin
+            ? area.minX + inset
+            : area.maxX - size.width - inset
         let y = corner == .topLeft || corner == .topRight
-            ? area.maxY - size.height - Self.margin
-            : area.minY + Self.margin
-        panel.setFrameOrigin(NSPoint(x: x, y: y))
+            ? area.maxY - size.height - inset
+            : area.minY + inset
+        snapWork?.cancel()
+        withoutSnapping { panel.setFrameOrigin(NSPoint(x: x, y: y)) }
         saveOrigin(panel)
         refreshExposure()
     }
@@ -268,11 +352,8 @@ final class DesktopWidget {
         // Saved on every move, because a borderless panel has no other way to be
         // told where it belongs. Moving it can also uncover or bury it.
         NotificationCenter.default.addObserver(
-            forName: NSWindow.didMoveNotification, object: panel, queue: .main
-        ) { [weak self] _ in
-            self?.saveOrigin(panel)
-            self?.refreshExposure()
-        }
+            forName: NSWindow.didMoveNotification, object: panel, queue: nil
+        ) { [weak self] _ in self?.scheduleSnap(panel) }
 
         // The two things that change what is stacked over the desktop. Neither is a
         // timer: nothing here polls, and with the desktop hidden the widget costs
@@ -297,9 +378,11 @@ final class DesktopWidget {
                 return
             }
         }
+        // No saved spot: the top-right corner, where the system's own widgets start.
         if let screen = NSScreen.main {
-            panel.setFrameOrigin(NSPoint(x: screen.visibleFrame.maxX - Self.width - 28,
-                                         y: screen.visibleFrame.maxY - 320))
+            let area = screen.visibleFrame
+            panel.setFrameOrigin(NSPoint(x: area.maxX - Self.width - Self.gridMargin,
+                                         y: area.maxY - panel.frame.height - Self.gridMargin))
         }
     }
 
@@ -340,10 +423,22 @@ final class DesktopWidget {
         header.update(limit: limits.dogBinding, reset: "")
         (panel.contentView as? WidgetBackgroundView)?.status = status
 
+        // Grow downward, keeping the top edge where it is. Keeping the *origin* fixed
+        // instead would move the top every time the API returned a different number of
+        // rows, and the grid is measured from the top -- so the widget would walk off
+        // its slot on its own.
         let height = Self.headerHeight + CGFloat(limits.count) * Self.rowHeight + 22
-        let origin = panel.frame.origin
-        panel.setFrame(NSRect(x: origin.x, y: origin.y, width: Self.width, height: height),
-                       display: true)
+        let frame = panel.frame
+        withoutSnapping {
+            panel.setFrame(NSRect(x: frame.minX, y: frame.maxY - height,
+                                  width: Self.width, height: height), display: true)
+        }
+        // Back onto a slot, every time. This is what catches a position saved before
+        // the grid existed, or on a display layout that has since changed -- and it
+        // is safe to run unconditionally because all four corners are fixed points of
+        // the snap (the clamps pull them back to the edge they were already on), so
+        // a deliberate corner placement survives it untouched.
+        snapToGrid(panel)
     }
 }
 

@@ -97,6 +97,12 @@ Execution model: `.claude/rules/execution-model.md`.
 - **"바탕화면이 드러났다"를 앱 활성화만으로 잡으면 새는 경우가 있다.** F11 같은
   경로는 활성화도 스페이스 전환도 일으키지 않는다. 마우스가 위젯 위로 들어오는
   것을 세 번째 신호로 함께 쓴다.
+- **`setFrameOrigin`도 `didMove`를 쏜다.** 드래그와 구분하지 않으면 코너 배치가
+  0.2초 뒤 격자로 끌려가고, 데이터 갱신마다 다시 끌려간다. 플래그로 막되
+  **옵저버를 `queue: nil`로 등록해야 한다** — 오퍼레이션 큐에 넣으면 블록이 도는
+  시점엔 이미 플래그가 false다.
+- `isMovableByWindowBackground`에는 "이동 끝" 알림이 없다. 디바운스하고
+  `NSEvent.pressedMouseButtons == 0`으로 버튼이 떨어졌는지 확인한다.
 
 **일러스트 작업 규칙 (비싸게 배움)**
 
