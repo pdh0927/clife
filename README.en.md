@@ -181,7 +181,13 @@ The art comes from the PNGs in `assets/dog/`; with that folder empty the app fal
 ./Clife.app/Contents/MacOS/Clife --dogsheet /tmp/dog.png
 ```
 
-That writes the four moods across six stride frames, **filled and line side by side**, plus the assembled dropdown layout, as PNGs. The line version is the same pose data with the fills taken out, so the only way to know it still reads as a dog is to look at it next to the one that does. Custom views inside an `NSMenuItem` cannot be captured while running — the menu closes the moment you try — so rendering the same views offscreen is the only way to see what was actually built.
+```sh
+./Clife.app/Contents/MacOS/Clife --gridsheet /tmp/grid.png
+```
+
+The second writes the drag-time slot grid, for the same reason: it exists only during a drag, and reaching for anything to capture it ends the drag.
+
+The first writes the four moods across six stride frames, **filled and line side by side**, plus the assembled dropdown layout, as PNGs. The line version is the same pose data with the fills taken out, so the only way to know it still reads as a dog is to look at it next to the one that does. Custom views inside an `NSMenuItem` cannot be captured while running — the menu closes the moment you try — so rendering the same views offscreen is the only way to see what was actually built.
 
 ### Running
 
@@ -213,13 +219,13 @@ Hiding the menu bar icon also stops the global mouse monitor. It exists to prefe
 
 Settings → **바탕화면 위젯**. The same dog and the same limits, parked on the desktop. Like Weather or Reminders it sits **above the desktop icons** and slides under any real window.
 
-**It lands on a slot, not wherever it was dropped.** System widgets do not go down at an arbitrary pixel either, and that is most of what makes one read as furniture rather than as a window that happens to be behind everything. The grid runs from the **top-left** of the usable area, because that is the edge that stays put: the bottom moves when the Dock appears and the right moves when the display changes, and anchoring to either is back to floating. Cells are 158pt with a 16pt gutter — the system's own numbers for a small widget.
+**It lands on a slot, not wherever it was dropped.** Every position it can take is outlined while you drag, and it drops into the highlighted one when you let go — the same as a system widget, and that is most of what makes one read as furniture rather than as a window that happens to be behind everything.
+
+The grid runs from the **top-left** of the usable area, because that is the edge that stays put: the bottom moves when the Dock appears and the right moves when the display changes, and anchoring to either is back to floating. The pitch is **this card's width plus 16pt**, not macOS's 158pt widget cell. Matching Apple's grid was the first attempt and it is wrong for a reason no tuning fixes: this card is 268 wide with a variable height, so it is not any widget size, and a 268pt card on a 158pt grid straddles cells at every position. A pitch derived from the card tiles exactly, so the slot highlighted during a drag is the space the widget will occupy. On a 16" laptop that is five columns by three rows.
 
 Two ways to move it: drag and let go, or pick one of four corners under Settings → **위젯 위치**. The corner presets exist because a desktop-level window is the hardest kind to grab — anything on top of it takes the click, so "just drag it" can be advice you cannot follow. The corner is on whichever screen the pointer is on.
 
-**All four corners are fixed points of the snap.** A slot that would hang off an edge is pulled back to the last position that fits, and that pull lands exactly on the corner. So re-snapping is safe to do unconditionally, and it is — which is how a position saved before the grid existed, or on a display layout that has since changed, finds its way back onto a slot.
-
-The height varies with the number of limit rows, so it **grows downward from a fixed top edge**. Keeping the origin fixed instead would move the top every time the API returned a different number of rows, and the widget would walk off its slot on its own.
+What gets persisted is the **top**-left corner. Saving the bottom was a real bug: the panel is created 68pt tall and only reaches full height once the rows are applied, so restoring a bottom-left put the top edge 180-odd points too low and the widget came back one slot lower **on every relaunch**. For the same reason the card grows downward from a fixed top edge.
 
 It is **not** a WidgetKit extension. That would need a second bundle, real provisioning and a notarised parent app, and this project signs ad-hoc on purpose (see `build.sh`) — an unsigned widget extension simply never loads. A borderless `NSPanel` pinned just above the desktop *icon* level reaches the same place, with no signing story at all. One level above the desktop picture is not enough: Finder draws the icons in their own window above that one, and a widget with a folder on top of it is a widget you cannot read.
 

@@ -34,21 +34,35 @@ enum WidgetCorner: String, CaseIterable {
 /// numbers, which is worse than not having a widget.
 final class DesktopWidget {
     private static let visibleKey = "widgetVisible"
-    private static let originKey  = "widgetOrigin"
+    /// The **top**-left corner, not the origin.
+    ///
+    /// A new key on purpose: the old one stored the bottom-left, and reading those
+    /// values as a top-left would teleport every existing install once. Storing the
+    /// top is what the grid actually measures from, and storing the bottom was a real
+    /// bug -- the panel is created 68pt tall and only reaches full height once the
+    /// rows are applied, so restoring a bottom-left put the top edge 180-odd points
+    /// too low and the widget came back one slot down from where it was left. It did
+    /// that on every relaunch, which is most of what "it sticks in a weird place" was.
+    private static let anchorKey  = "widgetAnchor"
     private static let width: CGFloat = 268
     private static let headerHeight: CGFloat = 68
     private static let rowHeight: CGFloat = 54
     /// Matches the dog's slot in `DogHeaderView`; the coverage test uses it.
     private static let dogWidth: CGFloat = 86
 
-    /// Desktop widget grid, measured from the top-left of the usable screen.
+    /// Desktop grid, measured from the top-left of the usable screen.
     ///
-    /// A system widget cannot be dropped at an arbitrary pixel -- it lands on a slot,
-    /// which is most of what makes it read as furniture rather than as a window that
-    /// happens to be behind everything. These are the system's own numbers for a
-    /// small widget: a 158pt cell with a 16pt gutter.
-    private static let gridPitch: CGFloat = 174
+    /// The pitch is **this card plus a gutter**, not the system's 158pt widget cell.
+    /// Matching Apple's grid was the first attempt and it looked wrong for a reason
+    /// that no amount of tuning fixes: this card is 268 wide and a variable height, so
+    /// it is not any widget size, and snapping a 268pt card onto a 158pt cell grid
+    /// leaves it straddling cells at every position. A pitch derived from the card
+    /// tiles exactly, which means the slot a drag highlights is the space the widget
+    /// will actually occupy.
+    ///
+    /// On a 16" laptop that comes out as five columns by three rows.
     private static let gridMargin: CGFloat = 16
+    private static var gridPitch: CGFloat { width + gridMargin }
 
     private var panel: NSPanel?
     private var header: DogHeaderView?
@@ -209,19 +223,43 @@ final class DesktopWidget {
         withoutSnapping { panel.setFrameOrigin(Self.snapped(frame, in: screen.visibleFrame)) }
     }
 
-    /// The arithmetic on its own, so it can be checked without a window or a display.
+    /// Keep the whole card on screen. Applied on its own when the row count changes
+    /// the height, since growing downward can otherwise push the bottom off.
+    static func clamped(_ frame: NSRect, in area: NSRect) -> NSPoint {
+        let inset = gridMargin
+        let x = min(max(frame.minX, area.minX + inset), area.maxX - inset - frame.width)
+        let top = min(max(frame.maxY, area.minY + inset + frame.height), area.maxY - inset)
+        return NSPoint(x: x, y: top - frame.height)
+    }
+
+    /// The nearest slot. Pure arithmetic, so it can be checked without a display.
     static func snapped(_ frame: NSRect, in area: NSRect) -> NSPoint {
         let pitch = gridPitch, inset = gridMargin
         let column = ((frame.minX - area.minX - inset) / pitch).rounded()
         let row = ((area.maxY - inset - frame.maxY) / pitch).rounded()
+        let x = area.minX + inset + column * pitch
+        let top = area.maxY - inset - row * pitch
+        // Clamp after rounding: a slot that would hang off the edge gets pulled back
+        // to the last position that fits, rather than snapping to nothing.
+        return clamped(NSRect(x: x, y: top - frame.height,
+                              width: frame.width, height: frame.height), in: area)
+    }
 
-        // Clamp after snapping, not before: a slot that would hang off the edge gets
-        // pulled back to the last position that fits, rather than snapping to nothing.
-        let x = min(max(area.minX + inset + column * pitch, area.minX + inset),
-                    area.maxX - inset - frame.width)
-        let top = min(max(area.maxY - inset - row * pitch, area.minY + inset + frame.height),
-                      area.maxY - inset)
-        return NSPoint(x: x, y: top - frame.height)
+    /// Every slot that fits, top-left first. The overlay draws these; `snapped` lands
+    /// on them. One function so the picture cannot disagree with the behaviour.
+    static func slots(in area: NSRect, size: NSSize) -> [NSRect] {
+        let pitch = gridPitch, inset = gridMargin
+        var out: [NSRect] = []
+        var top = area.maxY - inset
+        while top - size.height >= area.minY + inset {
+            var x = area.minX + inset
+            while x + size.width <= area.maxX - inset {
+                out.append(NSRect(x: x, y: top - size.height, width: size.width, height: size.height))
+                x += pitch
+            }
+            top -= pitch
+        }
+        return out
     }
 
     /// Snap once the drag is actually over.
@@ -252,15 +290,72 @@ final class DesktopWidget {
     private func scheduleSnap(_ panel: NSPanel) {
         guard !movingProgrammatically else { return }
         snapWork?.cancel()
+        // Still holding the button: this is a drag in progress, so show where it will
+        // land. A grid you cannot see is indistinguishable from the widget deciding
+        // for itself where to go.
+        if NSEvent.pressedMouseButtons != 0 { showGrid(for: panel) }
         let work = DispatchWorkItem { [weak self, weak panel] in
             guard let self, let panel else { return }
             guard NSEvent.pressedMouseButtons == 0 else { self.scheduleSnap(panel); return }
+            self.hideGrid()
             self.snapToGrid(panel)
             self.saveOrigin(panel)
             self.refreshExposure()
         }
         snapWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: work)
+    }
+
+    // MARK: Grid overlay
+
+    private var overlay: NSPanel?
+
+    /// The grid, drawn only while something is being dragged.
+    ///
+    /// One panel covering the screen rather than a placeholder panel that moves:
+    /// the complaint was not just that the landing spot was invisible but that the
+    /// positions felt arbitrary, and a single highlighted rectangle does not answer
+    /// that. Showing every slot does -- the arrangement stops being a secret the
+    /// moment you can see there is one.
+    private func showGrid(for panel: NSPanel) {
+        guard let screen = NSScreen.screens.first(where: { $0.frame.intersects(panel.frame) })
+                ?? NSScreen.main
+        else { return }
+        let area = screen.visibleFrame
+
+        let overlay = self.overlay ?? makeOverlay()
+        self.overlay = overlay
+        overlay.setFrame(area, display: false)
+
+        // In the overlay's own coordinates, which start at the visible frame.
+        let shift = NSPoint(x: -area.minX, y: -area.minY)
+        let size = panel.frame.size
+        let target = Self.snapped(panel.frame, in: area)
+        let view = overlay.contentView as? GridOverlayView
+        view?.slots = Self.slots(in: area, size: size)
+            .map { $0.offsetBy(dx: shift.x, dy: shift.y) }
+        view?.target = NSRect(origin: NSPoint(x: target.x + shift.x, y: target.y + shift.y),
+                              size: size)
+
+        overlay.orderFront(nil)
+        overlay.order(.below, relativeTo: panel.windowNumber)
+    }
+
+    private func hideGrid() { overlay?.orderOut(nil) }
+
+    private func makeOverlay() -> NSPanel {
+        let overlay = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel],
+                              backing: .buffered, defer: false)
+        overlay.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopIconWindow)) + 1)
+        overlay.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
+        overlay.isOpaque = false
+        overlay.backgroundColor = .clear
+        overlay.hasShadow = false
+        // Never take a click: the drag belongs to the widget, and an overlay that
+        // swallowed the mouse would end the gesture it exists to illustrate.
+        overlay.ignoresMouseEvents = true
+        overlay.contentView = GridOverlayView()
+        return overlay
     }
 
     /// Park in a named corner of whichever screen the pointer is on, so "put it top
@@ -368,13 +463,16 @@ final class DesktopWidget {
         return panel
     }
 
+    /// Restores the saved **top**-left corner. The panel is still at its initial
+    /// height here and grows once the rows arrive, so anchoring anything but the top
+    /// would move it -- see `anchorKey`.
     private func place(_ panel: NSPanel) {
-        if let saved = UserDefaults.standard.string(forKey: Self.originKey) {
-            let origin = NSPointFromString(saved)
+        if let saved = UserDefaults.standard.string(forKey: Self.anchorKey) {
+            let anchor = NSPointFromString(saved)
             // Only honour a saved spot that is still on a screen -- an unplugged
             // display would otherwise strand the widget somewhere unreachable.
-            if NSScreen.screens.contains(where: { $0.frame.contains(origin) }) {
-                panel.setFrameOrigin(origin)
+            if NSScreen.screens.contains(where: { $0.frame.contains(anchor) }) {
+                panel.setFrameOrigin(NSPoint(x: anchor.x, y: anchor.y - panel.frame.height))
                 return
             }
         }
@@ -387,7 +485,9 @@ final class DesktopWidget {
     }
 
     private func saveOrigin(_ panel: NSPanel) {
-        UserDefaults.standard.set(NSStringFromPoint(panel.frame.origin), forKey: Self.originKey)
+        let frame = panel.frame
+        UserDefaults.standard.set(NSStringFromPoint(NSPoint(x: frame.minX, y: frame.maxY)),
+                                  forKey: Self.anchorKey)
     }
 
     private func apply(limits: [UsageLimit], status: String,
@@ -433,12 +533,49 @@ final class DesktopWidget {
             panel.setFrame(NSRect(x: frame.minX, y: frame.maxY - height,
                                   width: Self.width, height: height), display: true)
         }
-        // Back onto a slot, every time. This is what catches a position saved before
-        // the grid existed, or on a display layout that has since changed -- and it
-        // is safe to run unconditionally because all four corners are fixed points of
-        // the snap (the clamps pull them back to the edge they were already on), so
-        // a deliberate corner placement survives it untouched.
-        snapToGrid(panel)
+        // Clamp, but do not re-snap. Growing downward can push the bottom off the
+        // screen, which has to be corrected; rounding to the nearest slot does not,
+        // and doing it here would quietly drag a deliberate corner placement onto the
+        // grid a moment after the user chose the corner.
+        if let screen = NSScreen.screens.first(where: { $0.frame.intersects(panel.frame) })
+            ?? NSScreen.main {
+            let landed = Self.clamped(panel.frame, in: screen.visibleFrame)
+            if landed != panel.frame.origin {
+                withoutSnapping { panel.setFrameOrigin(landed) }
+            }
+        }
+        saveOrigin(panel)
+    }
+}
+
+/// The slot grid, shown under the widget while it is being dragged.
+///
+/// Not private: it exists only during a drag, so the only way to look at it is to
+/// render it offscreen. `--gridsheet` does that.
+final class GridOverlayView: NSView {
+    /// Every available position, at the widget's own size, in this view's coordinates.
+    var slots: [NSRect] = [] { didSet { needsDisplay = true } }
+    var target: NSRect = .zero { didSet { needsDisplay = true } }
+
+    override func draw(_ dirtyRect: NSRect) {
+        // Every slot, faintly, drawn at the size the widget actually is -- so what is
+        // outlined is the space it will take, not an abstract cell it has to be
+        // mapped onto.
+        NSColor.labelColor.withAlphaComponent(0.13).setStroke()
+        for slot in slots where !slot.equalTo(target) {
+            let path = NSBezierPath(roundedRect: slot, xRadius: 16, yRadius: 16)
+            path.lineWidth = 1.5
+            path.setLineDash([6, 5], count: 2, phase: 0)
+            path.stroke()
+        }
+
+        guard !target.isEmpty else { return }
+        let landing = NSBezierPath(roundedRect: target, xRadius: 16, yRadius: 16)
+        NSColor.controlAccentColor.withAlphaComponent(0.18).setFill()
+        landing.fill()
+        NSColor.controlAccentColor.withAlphaComponent(0.55).setStroke()
+        landing.lineWidth = 2
+        landing.stroke()
     }
 }
 

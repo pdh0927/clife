@@ -1655,34 +1655,29 @@ private func selfTest() -> Never {
     precondition(AppDelegate.relativeReset(Date().addingTimeInterval(-60)) == "곧 초기화")
     precondition(AppDelegate.relativeReset(nil) == "-")
 
-    // The widget lands on grid slots, not wherever it was dropped. Measured from the
-    // top-left of the usable area, because the bottom moves with the Dock.
-    let desk = NSRect(x: 0, y: 0, width: 1512, height: 949)
+    // The widget lands on grid slots, not wherever it was dropped. The pitch is the
+    // card's own width plus a gutter, so the slots tile the screen exactly -- the
+    // highlighted landing spot is the space the widget will occupy, not a cell it
+    // gets mapped onto.
+    let desk = NSRect(x: 0, y: 0, width: 1512, height: 915)
     let card = NSSize(width: 268, height: 252)
-    // Nudged a few points off slot (1, 0): must come back to it exactly.
-    let near = NSRect(origin: NSPoint(x: 16 + 174 + 9, y: 949 - 16 - 252 - 7), size: card)
-    let snapped = DesktopWidget.snapped(near, in: desk)
-    precondition(snapped.x == 16 + 174, "\(snapped)")
-    precondition(snapped.y + card.height == 949 - 16, "top edge must land on the first row: \(snapped)")
-    // Dropped off the right edge: pulled back to the last spot that fits, not to a
-    // slot that would hang off the screen.
-    let off = NSRect(origin: NSPoint(x: 1490, y: 400), size: card)
-    precondition(DesktopWidget.snapped(off, in: desk).x == 1512 - 16 - 268,
-                 "\(DesktopWidget.snapped(off, in: desk))")
-    // ...and off the bottom: the whole card stays on screen.
-    let low = NSRect(origin: NSPoint(x: 100, y: -300), size: card)
-    precondition(DesktopWidget.snapped(low, in: desk).y == 16)
-
-    // Every corner must be a fixed point. The snap runs on each data refresh -- that
-    // is what rescues a position saved before the grid existed -- so if a corner were
-    // not stable under it, choosing "우측 상단" would drift off the edge a minute later.
-    for corner in [NSPoint(x: 16, y: 949 - 16 - card.height),
-                   NSPoint(x: 1512 - 16 - card.width, y: 949 - 16 - card.height),
-                   NSPoint(x: 16, y: 16),
-                   NSPoint(x: 1512 - 16 - card.width, y: 16)] {
-        let again = DesktopWidget.snapped(NSRect(origin: corner, size: card), in: desk)
-        precondition(again == corner, "corner \(corner) moved to \(again)")
+    let slots = DesktopWidget.slots(in: desk, size: card)
+    precondition(slots.count == 15, "5 columns x 3 rows on a 16in laptop, got \(slots.count)")
+    // Nudged off slot 1: must come back to it exactly.
+    let near = NSRect(origin: NSPoint(x: slots[1].minX + 11, y: slots[1].minY - 9), size: card)
+    precondition(DesktopWidget.snapped(near, in: desk) == slots[1].origin,
+                 "\(DesktopWidget.snapped(near, in: desk)) vs \(slots[1].origin)")
+    // Every slot is a fixed point -- a slot that did not survive its own snap would
+    // mean the overlay is drawing positions the widget cannot actually take.
+    for slot in slots {
+        precondition(DesktopWidget.snapped(slot, in: desk) == slot.origin, "\(slot) moved")
     }
+    // Dropped off the right edge: pulled back to the last position that fits.
+    let off = NSRect(origin: NSPoint(x: 1490, y: 400), size: card)
+    precondition(DesktopWidget.snapped(off, in: desk).x == 1512 - 16 - card.width)
+    // Growing taller must not push the bottom off screen.
+    let tall = NSRect(x: 100, y: -120, width: card.width, height: 400)
+    precondition(DesktopWidget.clamped(tall, in: desk).y == 16)
 
     // A 429's Retry-After is a floor: never retry sooner than the server said.
     precondition(AppDelegate.cooldownForTest(.rateLimited(retryAfter: 296), attempt: 1) == 296)
@@ -1841,6 +1836,47 @@ private func dogSheet() -> Never {
     exit(0)
 }
 
+/// `Clife --gridsheet <path.png>` -- renders the drag-time slot grid.
+///
+/// The overlay exists only while the widget is being dragged, which is precisely when
+/// it cannot be screenshotted: the drag ends the moment you reach for anything else.
+/// Same reasoning as `--dogsheet`, and the same remedy.
+private func gridSheet() -> Never {
+    let path = CommandLine.arguments.last.map { ($0 as NSString).expandingTildeInPath }
+        ?? "gridsheet.png"
+    // A 16" laptop's usable area, which is the case that has to look right.
+    let area = NSRect(x: 0, y: 0, width: 1512, height: 915)
+    let card = NSSize(width: 268, height: 252)
+
+    let view = GridOverlayView(frame: area)
+    view.slots = DesktopWidget.slots(in: area, size: card)
+    // Mid-drag, pointer somewhere around the middle of the screen.
+    let dragged = NSRect(origin: NSPoint(x: 640, y: 420), size: card)
+    view.target = NSRect(origin: DesktopWidget.snapped(dragged, in: area), size: card)
+
+    // Drawn straight into the image rather than through `cacheDisplay`, which hands
+    // back an opaque rep and paints over the backdrop this sheet exists to show the
+    // overlay against. The view has no subviews, so calling `draw` is the whole of it.
+    let sheet = NSImage(size: area.size, flipped: false) { rect in
+        NSColor(white: 0.30, alpha: 1).setFill()   // stand-in for a desktop picture
+        rect.fill()
+        NSAppearance(named: .aqua)?.performAsCurrentDrawingAppearance {
+            view.draw(rect)
+            // Where the card actually is while the pointer holds it, so the distance
+            // to the slot it is being pulled toward is visible.
+            NSColor.windowBackgroundColor.withAlphaComponent(0.97).setFill()
+            NSBezierPath(roundedRect: dragged, xRadius: 16, yRadius: 16).fill()
+        }
+        return true
+    }
+    guard let tiff = sheet.tiffRepresentation,
+          let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]),
+          (try? png.write(to: URL(fileURLWithPath: path))) != nil
+    else { print("failed to write \(path)"); exit(1) }
+    print("wrote \(path)")
+    exit(0)
+}
+
 /// Stand-in numbers for the offscreen previews, shaped like a real response.
 private let sampleLimits: [UsageLimit] = [
     UsageLimit(kind: "session", group: "session", percent: 82,
@@ -1880,6 +1916,7 @@ private func testNotify() -> Never {
 if CommandLine.arguments.contains("--selftest") { selfTest() }
 if CommandLine.arguments.contains("--testnotify") { testNotify() }
 if CommandLine.arguments.contains("--dogsheet") { dogSheet() }
+if CommandLine.arguments.contains("--gridsheet") { gridSheet() }
 if CommandLine.arguments.contains("--probe") { probe() }
 
 let app = NSApplication.shared
