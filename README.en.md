@@ -128,7 +128,11 @@ The icon itself is either "icon" (the dual ring) or "text" (`54%/29%`, which is 
 
 ## Raycast hotkey (optional)
 
-Under a fullscreen app the menu bar isn't visible at all. `raycast/claude-usage.py` puts the numbers on screen from a hotkey, without reaching for the top edge:
+Under a fullscreen app the menu bar isn't visible at all. `raycast/claude-usage.py` puts **the same card as the widget** on screen from a hotkey, in the upper third of the display, without reaching for the top edge. It shows over fullscreen apps too and fades away after four seconds; a click or pressing the hotkey again dismisses it at once (it never takes keyboard focus, so the next keystroke still reaches the app you were typing in), and it stays for as long as the pointer rests on it.
+
+It used to be Raycast's one-line HUD. All the numbers were in it, but what this app teaches people to read is the card with the dog and the bars, not a line of numbers joined by dots. So with the app running the script sends `open -g clife://peek` and **prints nothing** (silent mode with no output shows no HUD). The card is the widget's own `UsageCardView`, so the three surfaces cannot say different things, and the refresh goes through the same path and the same five-second floor as opening the dropdown — no extra request path.
+
+With the app not running it fetches on its own and shows the one-line HUD as before:
 
 ```
 5시간 29%  ·  주간 38%  ·  Fable 40%  ·  34분 후 초기화
@@ -142,7 +146,7 @@ If you keep all your Raycast scripts in one place, register only that folder and
 ln -sf "$PWD/raycast/claude-usage.py" ~/workspace/raycast/claude-usage.py
 ```
 
-Pressing the hotkey means "tell me now", so the script follows the same rule as the app — **it fetches every time.** The five-second floor is anti-double-tap and nothing else. A failed lookup falls back to the last value, tagged with its age and the reason (`334초 전 값 · 요청 제한`).
+Pressing the hotkey means "tell me now", so on the HUD path the script follows the same rule as the app — **it fetches every time.** The five-second floor is anti-double-tap and nothing else. A failed lookup falls back to the last value, tagged with its age and the reason (`334초 전 값 · 요청 제한`).
 
 The cache file (`~/Library/Caches/com.example.clife/usage.json`) is **shared with the app**: pressing the hotkey brings the rings up to date too, and vice versa. There is one rate limit between them, so there is no reason to ask twice. Both write to a temp file and swap it in atomically, so neither ever reads a half-written one.
 
@@ -183,9 +187,10 @@ The art comes from the PNGs in `assets/dog/`; with that folder empty the app fal
 
 ```sh
 ./Clife.app/Contents/MacOS/Clife --gridsheet /tmp/grid.png
+./Clife.app/Contents/MacOS/Clife --cardsheet /tmp/card.png
 ```
 
-The second writes the drag-time slot grid, for the same reason: it exists only during a drag, and reaching for anything to capture it ends the drag.
+`--gridsheet` writes the drag-time grid, for the same reason: it exists only during a drag, and reaching for anything to capture it ends the drag. `--cardsheet` writes the widget/hotkey card three ways — light, dark, and a single limit row (`design/implementation/widget.png`). The glass is composited by the window server and never reaches a bitmap, so a flat fill of the colour it measures as on screen stands in for it.
 
 The first writes the four moods across six stride frames, **filled and line side by side**, plus the assembled dropdown layout, as PNGs. The line version is the same pose data with the fills taken out, so the only way to know it still reads as a dog is to look at it next to the one that does. Custom views inside an `NSMenuItem` cannot be captured while running — the menu closes the moment you try — so rendering the same views offscreen is the only way to see what was actually built.
 
@@ -219,19 +224,23 @@ Hiding the menu bar icon also stops the global mouse monitor. It exists to prefe
 
 Settings → **바탕화면 위젯**. The same dog and the same limits, parked on the desktop. Like Weather or Reminders it sits **above the desktop icons** and slides under any real window.
 
-**It lands on a slot, not wherever it was dropped.** Every position it can take is outlined while you drag, and it drops into the highlighted one when you let go — the same as a system widget, and that is most of what makes one read as furniture rather than as a window that happens to be behind everything.
+**It is Apple's large widget size (344×344), fixed, and it lands on the system's own widget grid.** The grid cells are outlined while you drag and it drops into the highlighted spot when you let go — that is most of what makes a widget read as furniture rather than as a window that happens to be behind everything.
 
-The grid runs from the **top-left** of the usable area, because that is the edge that stays put: the bottom moves when the Dock appears and the right moves when the display changes, and anchoring to either is back to floating. The pitch is **this card's width plus 16pt**, not macOS's 158pt widget cell. Matching Apple's grid was the first attempt and it is wrong for a reason no tuning fixes: this card is 268 wide with a variable height, so it is not any widget size, and a 268pt card on a 158pt grid straddles cells at every position. A pitch derived from the card tiles exactly, so the slot highlighted during a drag is the space the widget will occupy. On a 16" laptop that is five columns by three rows.
+For a while it was the other way round. The card was 268pt wide with a variable height, which straddled cells on Apple's grid wherever it went, so the grid was derived from the card instead (card width + 16pt). Cards tiled each other exactly — but next to Calendar or Weather it was **a few points off at every position**, and "stuck somewhere ambiguous" was still the feeling. The thing to fix was the card, not the grid: make the card an Apple size and the system grid can be used as is.
 
-Two ways to move it: drag and let go, or pick one of four corners under Settings → **위젯 위치**. The corner presets exist because a desktop-level window is the hardest kind to grab — anything on top of it takes the click, so "just drag it" can be advice you cannot follow. The corner is on whichever screen the pointer is on.
+The numbers were measured from the system's own widget windows on this Mac with `CGWindowList`. Widget windows sit on a 180pt pitch and the visible card is inset 8pt on every side — small 164×164, medium 344×164, large 344×344, 16pt between cards. So cards start **16pt from the left and 30pt from the top** of the usable area, one 180pt pitch apart, and keep 8pt clear of the right and bottom edges. The grid runs from the **top-left**, as the system's does: the bottom moves when the Dock appears and the right moves when the display changes. On a 16" laptop the large card has 7 × 3 positions.
 
-What gets persisted is the **top**-left corner. Saving the bottom was a real bug: the panel is created 68pt tall and only reaches full height once the rows are applied, so restoring a bottom-left put the top edge 180-odd points too low and the widget came back one slot lower **on every relaunch**. For the same reason the card grows downward from a fixed top edge.
+It looks like a system widget too: instead of an opaque card, glass that blurs what is behind it (`NSVisualEffectView`), a 22pt radius, a faint hairline edge and no shadow. It follows the system appearance — dark glass in dark mode, light glass in light mode — and turns opaque on its own under "Reduce transparency". With only one limit row, the rows still sit centred between the header and the status line rather than leaving a hole at the bottom. The fixed size fits four rows; the API returns three today, and anything past four is in the menu.
+
+Two ways to move it: drag and let go, or pick one of four corners under Settings → **위젯 위치**. The corner presets exist because a desktop-level window is the hardest kind to grab — anything on top of it takes the click, so "just drag it" can be advice you cannot follow. The corners are the **grid's extreme slots**, not the raw screen corners, so "top right" lines up with system widgets there too. The corner is on whichever screen the pointer is on.
+
+What gets persisted is the **top**-left corner. Saving the bottom was a real bug: back when the panel was created short and grew once the rows arrived, restoring a bottom-left put the top edge 180-odd points too low and the widget came back one slot lower **on every relaunch**. A position saved on the old grid is snapped to the nearest slot of the new one when restored.
 
 It is **not** a WidgetKit extension. That would need a second bundle, real provisioning and a notarised parent app, and this project signs ad-hoc on purpose (see `build.sh`) — an unsigned widget extension simply never loads. A borderless `NSPanel` pinned just above the desktop *icon* level reaches the same place, with no signing story at all. One level above the desktop picture is not enough: Finder draws the icons in their own window above that one, and a widget with a folder on top of it is a widget you cannot read.
 
 Right-click opens the same menu the status item uses — which is also the way back to the settings with the menu bar icon hidden.
 
-The content reuses the dropdown's own views. Two copies would drift the first time either was touched, and then the widget and the menu would disagree about the same numbers, which is worse than having no widget.
+The content reuses the dropdown's own views. Two copies would drift the first time either was touched, and then the widget and the menu would disagree about the same numbers, which is worse than having no widget. The hotkey card is the same `UsageCardView`.
 
 ## Notifications
 

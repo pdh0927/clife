@@ -397,6 +397,8 @@ enum RefreshTrigger: String {
     case launch, menuBar, menuOpen, manual, timer, wake
     /// The desktop was revealed and the widget is now readable.
     case widget
+    /// The Raycast hotkey asked for the card (`clife://peek`).
+    case hotkey
 }
 
 // MARK: - Display mode
@@ -780,6 +782,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private var dogHeader: DogHeaderView!
     private let desktopWidget = DesktopWidget()
+    private let peek = PeekPanel()
     private var rowViews: [UsageRowView] = []
     private var rowItems: [NSMenuItem] = []
     private var statusMenuItem: NSMenuItem!
@@ -1206,6 +1209,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         reload(force: true, trigger: .manual)
     }
 
+    /// `clife://peek`, sent by the Raycast script when this app is running. Pressing
+    /// the hotkey is an unmistakable request for a number, so it gets the short
+    /// on-demand floor -- through `reloadOnDemand`, like every other look, so it
+    /// shares the one throttle rather than adding a path around it. Pressing it again
+    /// while the card is up puts it away.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        guard urls.contains(where: { $0.scheme == "clife" && $0.host == "peek" }) else { return }
+        peek.toggle()
+        guard peek.isVisible else { return }
+        render()   // the "N분 전 업데이트" line is current even if the fetch is skipped
+        reloadOnDemand(.hotkey)
+    }
+
     /// Everything that is a preference, in one submenu.
     ///
     /// The top level stays short -- the dog, the numbers, refresh, quit -- because
@@ -1474,6 +1490,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         dogHeader.update(limit: binding, reset: Self.relativeReset(binding?.resetsAt))
 
         desktopWidget.update(limits: limits, status: statusText()) { Self.relativeReset($0) }
+        peek.update(limits: limits, status: statusText()) { Self.relativeReset($0) }
 
         setStatusLine(statusText())
         // The freshness line goes in the tooltip too, not just the dropdown: a number
@@ -1655,29 +1672,48 @@ private func selfTest() -> Never {
     precondition(AppDelegate.relativeReset(Date().addingTimeInterval(-60)) == "곧 초기화")
     precondition(AppDelegate.relativeReset(nil) == "-")
 
-    // The widget lands on grid slots, not wherever it was dropped. The pitch is the
-    // card's own width plus a gutter, so the slots tile the screen exactly -- the
-    // highlighted landing spot is the space the widget will occupy, not a cell it
-    // gets mapped onto.
+    // The widget lands on the system's own widget grid, measured from the system
+    // widget windows on this 16" laptop: cards 16pt from the left, 30pt below the
+    // menu bar, one 180pt pitch apart.
     let desk = NSRect(x: 0, y: 0, width: 1512, height: 915)
-    let card = NSSize(width: 268, height: 252)
+    let card = UsageCardView.size
+    let pitch = DesktopWidget.gridPitch
+    // A large card is exactly two cells by two: two pitches less one 16pt gutter.
+    precondition(card.width == 2 * pitch - 16 && card.height == 2 * pitch - 16, "\(card)")
+    // Small cells land where the system's small widgets do (windows at x=8, 188...
+    // with their card inset 8pt).
+    let cells = DesktopWidget.slots(in: desk, size: DesktopWidget.cellSize)
+    precondition(cells[0].minX == 16 && cells[1].minX == 196 && cells[0].maxY == 885, "\(cells[0]) \(cells[1])")
     let slots = DesktopWidget.slots(in: desk, size: card)
-    precondition(slots.count == 15, "5 columns x 3 rows on a 16in laptop, got \(slots.count)")
+    precondition(slots.count == 21, "7 columns x 3 rows on a 16in laptop, got \(slots.count)")
+    for slot in slots {
+        // Every slot sits on grid lines...
+        precondition((slot.minX - 16).truncatingRemainder(dividingBy: pitch) == 0, "\(slot) off a column")
+        precondition((885 - slot.maxY).truncatingRemainder(dividingBy: pitch) == 0, "\(slot) off a row")
+        // ...and is a fixed point: a slot that did not survive its own snap would mean
+        // the overlay is drawing positions the widget cannot actually take.
+        precondition(DesktopWidget.snapped(slot, in: desk) == slot.origin, "\(slot) moved")
+    }
     // Nudged off slot 1: must come back to it exactly.
     let near = NSRect(origin: NSPoint(x: slots[1].minX + 11, y: slots[1].minY - 9), size: card)
     precondition(DesktopWidget.snapped(near, in: desk) == slots[1].origin,
                  "\(DesktopWidget.snapped(near, in: desk)) vs \(slots[1].origin)")
-    // Every slot is a fixed point -- a slot that did not survive its own snap would
-    // mean the overlay is drawing positions the widget cannot actually take.
-    for slot in slots {
-        precondition(DesktopWidget.snapped(slot, in: desk) == slot.origin, "\(slot) moved")
-    }
-    // Dropped off the right edge: pulled back to the last position that fits.
-    let off = NSRect(origin: NSPoint(x: 1490, y: 400), size: card)
-    precondition(DesktopWidget.snapped(off, in: desk).x == 1512 - 16 - card.width)
-    // Growing taller must not push the bottom off screen.
-    let tall = NSRect(x: 100, y: -120, width: card.width, height: 400)
-    precondition(DesktopWidget.clamped(tall, in: desk).y == 16)
+    // Dropped off the right or bottom edge: pulled back to the last column/row that
+    // fits, which is still on the grid rather than flush with the screen edge.
+    let off = NSRect(origin: NSPoint(x: 1490, y: -200), size: card)
+    precondition(DesktopWidget.snapped(off, in: desk) == NSPoint(x: 16 + 6 * pitch, y: 885 - 2 * pitch - card.height),
+                 "\(DesktopWidget.snapped(off, in: desk))")
+    // Corner presets are the grid's extremes, not the raw screen corners.
+    precondition(DesktopWidget.corner(.topLeft, in: desk, size: card) == NSPoint(x: 16, y: 885 - card.height))
+    precondition(DesktopWidget.corner(.topRight, in: desk, size: card) == NSPoint(x: 1096, y: 885 - card.height))
+    precondition(DesktopWidget.corner(.bottomLeft, in: desk, size: card) == NSPoint(x: 16, y: 885 - 360 - card.height))
+    // An old anchor from the previous 284pt grid snaps onto the new one.
+    let legacy = NSRect(origin: NSPoint(x: 16 + 284 * 4, y: 915 - 16 - 252), size: card)
+    precondition(slots.contains { $0.origin == DesktopWidget.snapped(legacy, in: desk) })
+    // A screen too small for any slot leaves the card where it is instead of crashing.
+    let tiny = NSRect(x: 0, y: 0, width: 300, height: 300)
+    precondition(DesktopWidget.snapped(near, in: tiny) == near.origin)
+    precondition(DesktopWidget.corner(.topRight, in: tiny, size: card) == nil)
 
     // A 429's Retry-After is a floor: never retry sooner than the server said.
     precondition(AppDelegate.cooldownForTest(.rateLimited(retryAfter: 296), attempt: 1) == 296)
@@ -1836,7 +1872,7 @@ private func dogSheet() -> Never {
     exit(0)
 }
 
-/// `Clife --gridsheet <path.png>` -- renders the drag-time slot grid.
+/// `Clife --gridsheet <path.png>` -- renders the drag-time grid.
 ///
 /// The overlay exists only while the widget is being dragged, which is precisely when
 /// it cannot be screenshotted: the drag ends the moment you reach for anything else.
@@ -1846,12 +1882,12 @@ private func gridSheet() -> Never {
         ?? "gridsheet.png"
     // A 16" laptop's usable area, which is the case that has to look right.
     let area = NSRect(x: 0, y: 0, width: 1512, height: 915)
-    let card = NSSize(width: 268, height: 252)
+    let card = UsageCardView.size
 
     let view = GridOverlayView(frame: area)
-    view.slots = DesktopWidget.slots(in: area, size: card)
+    view.cells = DesktopWidget.slots(in: area, size: DesktopWidget.cellSize)
     // Mid-drag, pointer somewhere around the middle of the screen.
-    let dragged = NSRect(origin: NSPoint(x: 640, y: 420), size: card)
+    let dragged = NSRect(origin: NSPoint(x: 640, y: 300), size: card)
     view.target = NSRect(origin: DesktopWidget.snapped(dragged, in: area), size: card)
 
     // Drawn straight into the image rather than through `cacheDisplay`, which hands
@@ -1864,8 +1900,75 @@ private func gridSheet() -> Never {
             view.draw(rect)
             // Where the card actually is while the pointer holds it, so the distance
             // to the slot it is being pulled toward is visible.
-            NSColor.windowBackgroundColor.withAlphaComponent(0.97).setFill()
-            NSBezierPath(roundedRect: dragged, xRadius: 16, yRadius: 16).fill()
+            NSColor(white: 0.21, alpha: 0.85).setFill()
+            NSBezierPath(roundedRect: dragged, xRadius: UsageCardView.cornerRadius,
+                         yRadius: UsageCardView.cornerRadius).fill()
+        }
+        return true
+    }
+    guard let tiff = sheet.tiffRepresentation,
+          let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]),
+          (try? png.write(to: URL(fileURLWithPath: path))) != nil
+    else { print("failed to write \(path)"); exit(1) }
+    print("wrote \(path)")
+    exit(0)
+}
+
+/// `Clife --cardsheet <path.png>` -- renders the card the widget and the hotkey peek
+/// share: light, dark, and dark with a single row, over a dark desktop picture.
+///
+/// The glass is a window-server blur and does not exist in a bitmap, so it is hidden
+/// here and a flat stand-in of the colour it measures as on screen is painted under
+/// the card instead. Everything else is the real view.
+private func cardSheet() -> Never {
+    let path = CommandLine.arguments.last.map { ($0 as NSString).expandingTildeInPath }
+        ?? "cardsheet.png"
+    let card = UsageCardView.size
+    let gutter: CGFloat = 36
+    let variants: [(NSAppearance.Name, [UsageLimit], NSColor)] = [
+        (.aqua, sampleLimits, NSColor(white: 0.97, alpha: 0.78)),
+        (.darkAqua, sampleLimits, NSColor(white: 0.21, alpha: 0.85)),
+        (.darkAqua, Array(sampleLimits.prefix(1)), NSColor(white: 0.21, alpha: 0.85)),
+    ]
+    let size = NSSize(width: gutter + CGFloat(variants.count) * (card.width + gutter),
+                      height: card.height + gutter * 2)
+
+    // Rendered one at a time, each with its own appearance, into a bitmap that keeps
+    // its alpha: `cacheDisplay` fills an opaque white rep, which would paint over the
+    // backdrop and the stand-in glass this sheet exists to show the card on.
+    let reps = variants.map { appearance, limits, _ -> NSBitmapImageRep in
+        DogArt.flushCache()   // line art bakes labelColor into its frames
+        let view = UsageCardView()
+        view.appearance = NSAppearance(named: appearance)
+        view.removeGlassForPreview()
+        // Built under the target appearance too: the bar track takes a CGColor, which
+        // is resolved once, at the moment it is set, not at draw time.
+        NSAppearance(named: appearance)!.performAsCurrentDrawingAppearance {
+            view.update(limits: limits, status: "방금 업데이트됨") { AppDelegate.relativeReset($0) }
+        }
+        view.layoutSubtreeIfNeeded()
+        let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(card.width) * 2,
+                                   pixelsHigh: Int(card.height) * 2, bitsPerSample: 8,
+                                   samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                                   colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+        rep.size = card
+        view.displayIgnoringOpacity(view.bounds, in: NSGraphicsContext(bitmapImageRep: rep)!)
+        return rep
+    }
+
+    let sheet = NSImage(size: size, flipped: false) { rect in
+        NSGradient(starting: NSColor(calibratedRed: 0.10, green: 0.14, blue: 0.24, alpha: 1),
+                   ending: NSColor(calibratedRed: 0.28, green: 0.20, blue: 0.30, alpha: 1))?
+            .draw(in: rect, angle: -35)
+        for (index, rep) in reps.enumerated() {
+            let frame = NSRect(x: gutter + CGFloat(index) * (card.width + gutter), y: gutter,
+                               width: card.width, height: card.height)
+            variants[index].2.setFill()
+            NSBezierPath(roundedRect: frame, xRadius: UsageCardView.cornerRadius,
+                         yRadius: UsageCardView.cornerRadius).fill()
+            // Not `draw(in:)`, which copies -- transparent pixels would punch holes.
+            rep.draw(in: frame, from: .zero, operation: .sourceOver, fraction: 1,
+                     respectFlipped: false, hints: nil)
         }
         return true
     }
@@ -1917,6 +2020,7 @@ if CommandLine.arguments.contains("--selftest") { selfTest() }
 if CommandLine.arguments.contains("--testnotify") { testNotify() }
 if CommandLine.arguments.contains("--dogsheet") { dogSheet() }
 if CommandLine.arguments.contains("--gridsheet") { gridSheet() }
+if CommandLine.arguments.contains("--cardsheet") { cardSheet() }
 if CommandLine.arguments.contains("--probe") { probe() }
 
 let app = NSApplication.shared

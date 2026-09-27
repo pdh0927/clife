@@ -11,7 +11,7 @@ Execution model: `.claude/rules/execution-model.md`.
 |---|---|
 | `src/main.swift` | API 클라이언트, 응답 캐시, 상태 아이템, 드롭다운, 알림, 진단 플래그. 대부분이 여기 |
 | `src/dog.swift` | 강아지 일러스트(포즈 데이터 + Core Graphics 그리기), `DogStyle`. UI 로직 없음 |
-| `src/widget.swift` | 바탕화면 패널, 가림 판정, 모서리 배치. 드롭다운의 뷰를 **재사용**하고 다시 만들지 않는다 |
+| `src/widget.swift` | 카드 뷰(`UsageCardView`), 바탕화면 패널, 가림 판정, 격자·모서리 배치, 단축키 카드(`PeekPanel`, `clife://peek`). 드롭다운의 뷰를 **재사용**하고 다시 만들지 않는다 |
 | `raycast/claude-usage.py` | Raycast 스크립트 커맨드. 앱과 캐시 파일을 공유 |
 | `design/` | 시안(SVG/HTML)과 `implementation/`(빌드된 앱에서 뽑은 실물 렌더) |
 | `build.sh` / `setup.sh` | 빌드(swiftc 직접 호출) / 빌드+`/Applications` 설치 |
@@ -45,7 +45,9 @@ Execution model: `.claude/rules/execution-model.md`.
   `Claude Code-credentials`에서 `/usr/bin/security`로 **읽기만**. 갱신은 Claude
   Code 몫이고, 우리가 쓰면 refresh token을 둘 다 잃는다.
 - `Clife --selftest` 로직 검증 / `--probe` 실제 요청 1회 / `--dogsheet <path>`
-  일러스트(채움·선)·드롭다운 레이아웃 / `--gridsheet <path>` 드래그 중 슬롯 격자.
+  일러스트(채움·선)·드롭다운 레이아웃 / `--gridsheet <path>` 드래그 중 격자 /
+  `--cardsheet <path>` 위젯·단축키 카드(라이트/다크/한 줄).
+- `clife://peek` — 실행 중인 앱에 단축키 카드를 띄운다(`open -g clife://peek`).
 
 **할 수 없는 것 — "안 된다"고 잘못 판단하기 쉬운 것들**
 - **WidgetKit 익스텐션은 못 쓴다.** 애드혹 서명이라 로드되지 않는다. 바탕화면
@@ -108,10 +110,14 @@ Execution model: `.claude/rules/execution-model.md`.
 - **위치는 위쪽 변 기준으로 저장한다.** 패널은 초기 높이로 만들어졌다가 줄이 채워진
   뒤 커지므로, 아래쪽 기준으로 복원하면 위쪽이 그 차이만큼 내려앉는다. 재실행마다
   한 칸씩 밀렸다.
-- **격자 간격은 놓을 물건 크기에서 유도한다.** macOS 위젯 칸(158pt)에 268pt 카드를
-  올리면 어느 위치에서든 칸에 걸쳐서, 붙긴 붙는데 "이상한 데 붙는" 느낌이 된다.
-  그리고 **격자는 드래그 중에 보여야 한다** — 안 보이는 격자는 위젯이 제멋대로
-  움직이는 것과 구분되지 않는다.
+- **격자에 맞추려면 격자를 바꾸지 말고 카드를 애플 규격으로 만든다.** 268pt 가변
+  카드에 맞춰 격자를 유도(카드 폭+16)했더니 카드끼리는 맞았지만 옆의 시스템 위젯과
+  몇 pt씩 어긋나 "애매하게 붙은" 느낌이 그대로였다. 카드를 큰 위젯(344×344)으로
+  고정하고 시스템 격자(간격 180, 왼쪽 16, 위 30 — 알림 센터 소유 창을 `CGWindowList`로
+  실측, 보이는 카드는 창 안쪽 8pt)를 그대로 쓴다. 그리고 **격자는 드래그 중에 보여야
+  한다** — 안 보이는 격자는 위젯이 제멋대로 움직이는 것과 구분되지 않는다.
+- **`NSImageRep.draw(in:)`은 copy로 그린다.** 투명 픽셀이 배경에 구멍을 뚫어서 PNG
+  뷰어에선 흰 사각형으로 보인다. 오프스크린 합성은 `draw(in:from:operation: .sourceOver…)`.
 
 **일러스트 작업 규칙 (비싸게 배움)**
 

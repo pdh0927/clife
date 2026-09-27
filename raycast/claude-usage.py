@@ -11,10 +11,12 @@
 # Optional parameters:
 # @raycast.icon 📊
 # @raycast.packageName Clife
-# @raycast.description 플랜 사용량 한도를 HUD로 표시 (메뉴바를 보지 않고)
+# @raycast.description 플랜 사용량 카드를 띄움 (앱이 꺼져 있으면 한 줄 HUD)
 #
-# Reads the same endpoint the Clife menu bar app and Claude's own usage popup
-# use. Stdlib only -- no pip, no jq.
+# With the Clife app running, asks it to show its own card (clife://peek) and
+# prints nothing, so Raycast shows no HUD on top of it. Without the app, reads
+# the same endpoint the app and Claude's own usage popup use and prints one line
+# for Raycast's HUD. Stdlib only -- no pip, no jq.
 
 import json
 import os
@@ -120,7 +122,22 @@ def render(payload, age):
     return "  ·  ".join(parts)
 
 
+def peek():
+    """Hand the hotkey to the running app, which shows the same card as its widget.
+
+    The app does the fetch too, through its own throttle, so a press never spends a
+    request here that the app would then spend again. False when the app is not
+    running -- or is a build without the URL handler -- and the HUD has to do.
+    """
+    if subprocess.run(["pgrep", "-x", "Clife"], capture_output=True).returncode != 0:
+        return False
+    return subprocess.run(["open", "-g", "clife://peek"], capture_output=True).returncode == 0
+
+
 def main():
+    if peek():
+        return  # silent mode with no output: no HUD over the card
+
     cached, age = read_cache()
     if cached is not None and age < MAX_AGE:
         print(render(cached, None))
