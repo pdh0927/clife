@@ -361,7 +361,36 @@ final class DesktopWidget {
         guard let screen = NSScreen.screens.first(where: { $0.frame.intersects(frame) })
                 ?? NSScreen.main
         else { return }
-        withoutSnapping { panel.setFrameOrigin(Self.snapped(frame, in: screen.visibleFrame)) }
+        withoutSnapping {
+            panel.setFrameOrigin(Self.snapped(frame, in: screen.visibleFrame,
+                                              avoiding: Self.systemWidgetFrames()))
+        }
+    }
+
+    /// The visible cards of the system's own desktop widgets, in AppKit coordinates.
+    ///
+    /// The grid alone put the card on top of Reminders when dropped there: the system
+    /// widgets make room for each other, but they do not know this panel exists, so
+    /// it has to stay out of their way itself. Their windows belong to Notification
+    /// Center and carry an 8pt transparent margin around the card.
+    static func systemWidgetFrames() -> [NSRect] {
+        guard let primary = NSScreen.screens.first,
+              let all = CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID)
+                as? [[String: Any]]
+        else { return [] }
+        return all.compactMap { window in
+            guard let pid = window[kCGWindowOwnerPID as String] as? pid_t,
+                  NSRunningApplication(processIdentifier: pid)?.bundleIdentifier
+                    == "com.apple.notificationcenterui",
+                  let layer = window[kCGWindowLayer as String] as? Int, layer < 0,
+                  let bounds = window[kCGWindowBounds as String] as? [String: CGFloat],
+                  let rect = CGRect(dictionaryRepresentation: bounds as CFDictionary),
+                  rect.width < primary.frame.width   // not the full-screen host window
+            else { return nil }
+            // CGWindow bounds are y-down from the top of the main display.
+            return NSRect(x: rect.minX, y: primary.frame.maxY - rect.maxY,
+                          width: rect.width, height: rect.height).insetBy(dx: 8, dy: 8)
+        }
     }
 
     /// The nearest slot, which by construction keeps the whole card on screen. Pure
@@ -370,8 +399,13 @@ final class DesktopWidget {
     /// The grid runs from the top-left of the visible area, as the system's does: the
     /// bottom moves when the Dock appears and the right moves when the display
     /// changes, and a widget that drifts on either is back to floating.
-    static func snapped(_ frame: NSRect, in area: NSRect) -> NSPoint {
-        let candidates = slots(in: area, size: frame.size)
+    ///
+    /// Slots overlapping anything in `occupied` (the system's widgets) are skipped, so
+    /// the nearest *free* slot wins. With nothing free it stays where it was dropped.
+    static func snapped(_ frame: NSRect, in area: NSRect, avoiding occupied: [NSRect] = []) -> NSPoint {
+        let candidates = slots(in: area, size: frame.size).filter { slot in
+            !occupied.contains { $0.intersects(slot) }
+        }
         let nearest = candidates.min { a, b in
             hypot(a.minX - frame.minX, a.maxY - frame.maxY) < hypot(b.minX - frame.minX, b.maxY - frame.maxY)
         }
@@ -473,7 +507,7 @@ final class DesktopWidget {
         // In the overlay's own coordinates, which start at the visible frame.
         let shift = NSPoint(x: -area.minX, y: -area.minY)
         let size = panel.frame.size
-        let target = Self.snapped(panel.frame, in: area)
+        let target = Self.snapped(panel.frame, in: area, avoiding: Self.systemWidgetFrames())
         let view = overlay.contentView as? GridOverlayView
         view?.cells = Self.slots(in: area, size: Self.cellSize)
             .map { $0.offsetBy(dx: shift.x, dy: shift.y) }

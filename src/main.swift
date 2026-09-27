@@ -1710,6 +1710,19 @@ private func selfTest() -> Never {
     // An old anchor from the previous 284pt grid snaps onto the new one.
     let legacy = NSRect(origin: NSPoint(x: 16 + 284 * 4, y: 915 - 16 - 252), size: card)
     precondition(slots.contains { $0.origin == DesktopWidget.snapped(legacy, in: desk) })
+    // System widgets laid out as on the user's desk: two mediums in each of the first
+    // two rows, a small in row 0. A drop over Reminders (column 2, row 1) must land on
+    // a free slot, never on top of them -- the grid alone did exactly that.
+    let medium = NSSize(width: 344, height: 164), small = DesktopWidget.cellSize
+    let taken = [NSRect(origin: NSPoint(x: 16, y: 885 - 164), size: medium),
+                 NSRect(origin: NSPoint(x: 376, y: 885 - 164), size: medium),
+                 NSRect(origin: NSPoint(x: 736, y: 885 - 164), size: small),
+                 NSRect(origin: NSPoint(x: 16, y: 705 - 164), size: medium),
+                 NSRect(origin: NSPoint(x: 376, y: 705 - 164), size: medium)]
+    let overReminders = NSRect(origin: NSPoint(x: 560, y: 705 - card.height + 40), size: card)
+    let landed = NSRect(origin: DesktopWidget.snapped(overReminders, in: desk, avoiding: taken), size: card)
+    precondition(slots.contains { $0.origin == landed.origin }, "\(landed) off the grid")
+    precondition(!taken.contains { $0.intersects(landed) }, "\(landed) lands on a system widget")
     // A screen too small for any slot leaves the card where it is instead of crashing.
     let tiny = NSRect(x: 0, y: 0, width: 300, height: 300)
     precondition(DesktopWidget.snapped(near, in: tiny) == near.origin)
