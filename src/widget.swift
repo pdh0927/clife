@@ -402,15 +402,27 @@ final class DesktopWidget {
     ///
     /// Slots overlapping anything in `occupied` (the system's widgets) are skipped, so
     /// the nearest *free* slot wins. With nothing free it stays where it was dropped.
+    ///
+    /// Only a *nearby* slot pulls: past `snapDistance` the card stays exactly where it
+    /// was dropped (kept on screen). Snapping every drop to the nearest slot measured
+    /// from the top-left corner kept landing somewhere other than the gap the user
+    /// aimed at -- a widget that refuses to go where it is put is worse than one that
+    /// is a few points off the grid.
     static func snapped(_ frame: NSRect, in area: NSRect, avoiding occupied: [NSRect] = []) -> NSPoint {
         let candidates = slots(in: area, size: frame.size).filter { slot in
             !occupied.contains { $0.intersects(slot) }
         }
-        let nearest = candidates.min { a, b in
-            hypot(a.minX - frame.minX, a.maxY - frame.maxY) < hypot(b.minX - frame.minX, b.maxY - frame.maxY)
+        let distance = { (slot: NSRect) in hypot(slot.minX - frame.minX, slot.maxY - frame.maxY) }
+        if let nearest = candidates.min(by: { distance($0) < distance($1) }),
+           distance(nearest) <= snapDistance {
+            return nearest.origin
         }
-        return nearest?.origin ?? frame.origin
+        let x = min(max(frame.minX, area.minX), area.maxX - frame.width)
+        let y = min(max(frame.minY, area.minY), area.maxY - frame.height)
+        return NSPoint(x: x, y: y)
     }
+
+    static let snapDistance: CGFloat = 40
 
     /// Every slot a card of `size` fits in, top-left first. `snapped` and the corner
     /// presets land only on these; the overlay draws the grid from the same function.
@@ -671,7 +683,7 @@ final class GridOverlayView: NSView {
 /// peek cannot say anything the widget and the menu do not.
 final class PeekPanel {
     /// Long enough to read three rows, short enough not to need dismissing.
-    private static let visibleFor: TimeInterval = 4
+    private static let visibleFor: TimeInterval = 2.5
 
     private var panel: NSPanel?
     private let card = UsageCardView()

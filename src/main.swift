@@ -1698,34 +1698,37 @@ private func selfTest() -> Never {
     let near = NSRect(origin: NSPoint(x: slots[1].minX + 11, y: slots[1].minY - 9), size: card)
     precondition(DesktopWidget.snapped(near, in: desk) == slots[1].origin,
                  "\(DesktopWidget.snapped(near, in: desk)) vs \(slots[1].origin)")
-    // Dropped off the right or bottom edge: pulled back to the last column/row that
-    // fits, which is still on the grid rather than flush with the screen edge.
+    // Dropped far from any slot: stays where it was put, only pulled back on screen.
+    // Snapping every drop to the nearest slot is what kept refusing the gap aimed at.
     let off = NSRect(origin: NSPoint(x: 1490, y: -200), size: card)
-    precondition(DesktopWidget.snapped(off, in: desk) == NSPoint(x: 16 + 6 * pitch, y: 885 - 2 * pitch - card.height),
+    precondition(DesktopWidget.snapped(off, in: desk) == NSPoint(x: 1512 - card.width, y: 0),
                  "\(DesktopWidget.snapped(off, in: desk))")
+    let free = NSRect(origin: NSPoint(x: 700, y: 300), size: card)
+    precondition(DesktopWidget.snapped(free, in: desk) == free.origin, "free drop moved")
     // Corner presets are the grid's extremes, not the raw screen corners.
     precondition(DesktopWidget.corner(.topLeft, in: desk, size: card) == NSPoint(x: 16, y: 885 - card.height))
     precondition(DesktopWidget.corner(.topRight, in: desk, size: card) == NSPoint(x: 1096, y: 885 - card.height))
     precondition(DesktopWidget.corner(.bottomLeft, in: desk, size: card) == NSPoint(x: 16, y: 885 - 360 - card.height))
-    // An old anchor from the previous 284pt grid snaps onto the new one.
-    let legacy = NSRect(origin: NSPoint(x: 16 + 284 * 4, y: 915 - 16 - 252), size: card)
-    precondition(slots.contains { $0.origin == DesktopWidget.snapped(legacy, in: desk) })
     // System widgets laid out as on the user's desk: two mediums in each of the first
-    // two rows, a small in row 0. A drop over Reminders (column 2, row 1) must land on
-    // a free slot, never on top of them -- the grid alone did exactly that.
+    // two rows, a small in row 0.
     let medium = NSSize(width: 344, height: 164), small = DesktopWidget.cellSize
     let taken = [NSRect(origin: NSPoint(x: 16, y: 885 - 164), size: medium),
                  NSRect(origin: NSPoint(x: 376, y: 885 - 164), size: medium),
                  NSRect(origin: NSPoint(x: 736, y: 885 - 164), size: small),
                  NSRect(origin: NSPoint(x: 16, y: 705 - 164), size: medium),
                  NSRect(origin: NSPoint(x: 376, y: 705 - 164), size: medium)]
-    let overReminders = NSRect(origin: NSPoint(x: 560, y: 705 - card.height + 40), size: card)
-    let landed = NSRect(origin: DesktopWidget.snapped(overReminders, in: desk, avoiding: taken), size: card)
-    precondition(slots.contains { $0.origin == landed.origin }, "\(landed) off the grid")
-    precondition(!taken.contains { $0.intersects(landed) }, "\(landed) lands on a system widget")
-    // A screen too small for any slot leaves the card where it is instead of crashing.
+    // Dropped just off the free gap beside Reminders: lands in that gap.
+    let gap = NSPoint(x: 736, y: 705 - card.height)
+    let nearGap = NSRect(origin: NSPoint(x: gap.x - 20, y: gap.y + 15), size: card)
+    precondition(DesktopWidget.snapped(nearGap, in: desk, avoiding: taken) == gap,
+                 "\(DesktopWidget.snapped(nearGap, in: desk, avoiding: taken)) vs \(gap)")
+    // Dropped just off the slot Reminders fills: never pulled onto it.
+    let onReminders = NSRect(origin: NSPoint(x: 376 + 10, y: 705 - card.height - 10), size: card)
+    let landed = DesktopWidget.snapped(onReminders, in: desk, avoiding: taken)
+    precondition(landed != NSPoint(x: 376, y: 705 - card.height), "snapped onto Reminders")
+    // A screen too small for any slot does not crash.
     let tiny = NSRect(x: 0, y: 0, width: 300, height: 300)
-    precondition(DesktopWidget.snapped(near, in: tiny) == near.origin)
+    _ = DesktopWidget.snapped(near, in: tiny)
     precondition(DesktopWidget.corner(.topRight, in: tiny, size: card) == nil)
 
     // A 429's Retry-After is a floor: never retry sooner than the server said.
