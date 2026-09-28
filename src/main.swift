@@ -444,6 +444,7 @@ final class UsageRowView: NSView {
         }
         fill.translatesAutoresizingMaskIntoConstraints = false
         track.addSubview(fill)
+        addSubview(paw)
 
         NSLayoutConstraint.activate([
             titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 7),
@@ -479,7 +480,7 @@ final class UsageRowView: NSView {
             percentLabel.stringValue = "-"
             fill.layer?.backgroundColor = NSColor.clear.cgColor
             pawPercent = nil
-            needsDisplay = true
+            needsLayout = true
             return
         }
         percentLabel.stringValue = String(format: "%.0f%%", percent)
@@ -491,7 +492,7 @@ final class UsageRowView: NSView {
         fillWidthConstraint = constraint
 
         pawPercent = percent
-        needsDisplay = true
+        needsLayout = true
     }
 
     /// Where this limit has got to, marked with a paw print on the track.
@@ -501,17 +502,36 @@ final class UsageRowView: NSView {
     /// display -- but a paw still ties each bar to the same character, so the rows
     /// read as the same run rather than as unrelated meters.
     private var pawPercent: Double?
+    /// A subview above the track, not drawn in `draw(_:)`: the track and fill are
+    /// layer-backed subviews, so anything the row draws itself ends up *behind* them
+    /// and only the paw's lower edge showed under the bar.
+    private let paw = PawMarkerView()
 
-    override func draw(_ dirtyRect: NSRect) {
-        super.draw(dirtyRect)
-        guard let pawPercent else { return }
+    override func layout() {
+        super.layout()
+        guard let pawPercent else { paw.isHidden = true; return }
+        paw.isHidden = false
         let fraction = CGFloat(max(0, min(100, pawPercent)) / 100)
         let trackFrame = track.frame
-        let size: CGFloat = 13
-        let x = trackFrame.minX + trackFrame.width * fraction - size / 2
-        let rect = NSRect(x: x, y: trackFrame.midY - size / 2, width: size, height: size)
-        IconFactory.color(for: pawPercent).setFill()
-        DogArt.pawPath(in: rect).fill()
+        let size = PawMarkerView.size
+        paw.frame = NSRect(x: (trackFrame.minX + trackFrame.width * fraction - size / 2).rounded(),
+                           y: (trackFrame.midY - size / 2).rounded(), width: size, height: size)
+    }
+}
+
+/// The paw on a usage bar. Dark brown -- the dog's own ink -- inside a white rim, so
+/// it reads as a paw on the green, amber and red fills alike instead of melting into
+/// a bar of its own colour.
+private final class PawMarkerView: NSView {
+    static let size: CGFloat = 16
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.white.setFill()
+        NSBezierPath(ovalIn: bounds).fill()
+        DogArt.ink.setFill()
+        DogArt.pawPath(in: bounds.insetBy(dx: 3, dy: 3)).fill()
     }
 }
 
