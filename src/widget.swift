@@ -321,13 +321,26 @@ final class DesktopWidget {
             if window[kCGWindowOwnerPID as String] as? Int32 == ProcessInfo.processInfo.processIdentifier {
                 continue
             }
-            guard let bounds = window[kCGWindowBounds as String] as? [String: CGFloat],
+            guard Self.countsAsCover(layer: window[kCGWindowLayer as String] as? Int ?? 0,
+                                     alpha: window[kCGWindowAlpha as String] as? Double ?? 1),
+                  let bounds = window[kCGWindowBounds as String] as? [String: CGFloat],
                   let rect = CGRect(dictionaryRepresentation: bounds as CFDictionary)
             else { continue }
             let overlap = rect.intersection(mine)
             if !overlap.isNull, overlap.width * overlap.height >= enough { return false }
         }
         return true
+    }
+
+    /// Whether a window above ours can actually hide the dog.
+    ///
+    /// Full-screen windows that show nothing are all over the window list: an
+    /// invisible Slack window (alpha 0), the screenshot tool's overlay, the Dock's
+    /// full-screen window. Counting them froze the dog for good, since each one
+    /// overlaps every corner of the screen. Ordinary and floating windows (layer
+    /// below the Dock's 20) that are not fully transparent are what cover a card.
+    static func countsAsCover(layer: Int, alpha: Double) -> Bool {
+        layer < 20 && alpha > 0.01
     }
 
     /// Re-asks whether the widget is covered, and reacts only to a change.

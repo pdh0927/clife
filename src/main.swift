@@ -1809,6 +1809,11 @@ private func selfTest() -> Never {
     precondition(DesktopWidget.corner(.topRight, in: tall, size: card, anchor: anchor)?.y == 1065 - card.height)
     // A widget on another screen says nothing about this one: back to the constants.
     precondition(DesktopWidget.rowAnchor(in: tall, widgets: [weather.offsetBy(dx: -1920, dy: 0)]) == nil)
+    // Invisible full-screen system windows must not read as covering the dog.
+    precondition(DesktopWidget.countsAsCover(layer: 0, alpha: 1))
+    precondition(!DesktopWidget.countsAsCover(layer: 26, alpha: 0))    // Slack's invisible window
+    precondition(!DesktopWidget.countsAsCover(layer: 24, alpha: 1))    // screenshot overlay, menu bar
+    precondition(!DesktopWidget.countsAsCover(layer: 0, alpha: 0))
     precondition(DesktopWidget.slots(in: tall, size: card, anchor: nil).first?.maxY == 1073 - 30)
 
     // A 429's Retry-After is a floor: never retry sooner than the server said.
