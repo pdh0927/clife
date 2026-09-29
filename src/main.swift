@@ -1440,8 +1440,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             var fired = firedThresholds[limit.id] ?? []
             for threshold in Self.notifyThresholds where limit.percent >= threshold && !fired.contains(threshold) {
                 fired.insert(threshold)
+                let mood = DogMood(percent: limit.percent)
                 notify(title: "\(limit.title)를 \(Int(threshold))% 썼어요",
-                       body: "\(DogMood(percent: limit.percent).line) · \(Self.relativeReset(limit.resetsAt))")
+                       body: "\(mood.line) · \(Self.relativeReset(limit.resetsAt))",
+                       mood: mood)
             }
             firedThresholds[limit.id] = fired
         }
@@ -1470,20 +1472,56 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     static func isSameWindowForTest(_ a: Date?, _ b: Date?) -> Bool { isSameWindow(a, b) }
 
-    /// The dog delivers the news, but only as the app icon.
+    /// The dog delivers the news as attached art.
     ///
-    /// The mood art used to be attached as well, which put a second dog on the right
-    /// of the banner -- the same character twice in one notification, at two sizes,
-    /// for one piece of news. The icon already carries it, and the words already say
-    /// the mood, so the attachment was decoration competing with the thing it was
-    /// decorating. Its `line` still sets the tone of the body text.
-    private func notify(title: String, body: String) {
+    /// The app icon is not enough on its own: Notification Center caches the icon by
+    /// bundle ID and can keep showing an old one after the icon changes, which left
+    /// banners with a gauge and no dog. The attachment does not go through that cache.
+    private func notify(title: String, body: String, mood: DogMood) {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
         content.sound = .default
+        if let attachment = Self.moodAttachment(mood) { content.attachments = [attachment] }
         let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request)
+    }
+
+    /// Renders the mood art to a file UNNotification can attach.
+    ///
+    /// Rendered fresh each time, not cached: `UNNotificationAttachment` *moves* the
+    /// file into the notification store rather than copying it, so the path is empty
+    /// again by the time the next threshold comes around.
+    ///
+    /// Kept beside the usage cache so uninstalling takes the whole directory with it.
+    private static func moodAttachment(_ mood: DogMood) -> UNNotificationAttachment? {
+        let directory = UsageCache.url.deletingLastPathComponent().appendingPathComponent("mood")
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let url = directory.appendingPathComponent("\(mood).png")
+
+        if !FileManager.default.fileExists(atPath: url.path) {
+            let size = NSSize(width: 256, height: 208)
+            let image = NSImage(size: size, flipped: false) { rect in
+                // Supplied art brings its own margins; the drawn version needs some
+                // added or it touches the edges of the notification thumbnail.
+                if let frame = DogArt.frames(mood: mood, size: size).first, DogArt.usesSuppliedArt {
+                    frame.draw(in: DogHeaderView.fit(frame.size, into: rect.insetBy(dx: 10, dy: 10)))
+                } else {
+                    DogArt.draw(mood: mood, in: rect.insetBy(dx: 18, dy: 18))
+                }
+                return true
+            }
+            guard let tiff = image.tiffRepresentation,
+                  let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]),
+                  (try? png.write(to: url)) != nil
+            else { return nil }
+        }
+        return try? UNNotificationAttachment(identifier: "dog-\(mood)", url: url)
+    }
+
+    /// Test seam for `--testnotify`, which cannot reach a private member.
+    static func moodAttachmentForTest(_ mood: DogMood) -> UNNotificationAttachment? {
+        moodAttachment(mood)
     }
 
     /// Sets the button's image via a nil-then-set toggle instead of a direct
@@ -2036,10 +2074,14 @@ private func testNotify() -> Never {
     let centre = UNUserNotificationCenter.current()
     centre.requestAuthorization(options: [.alert, .sound]) { granted, _ in
         guard granted else { print("알림 권한 없음 — 시스템 설정에서 허용 필요"); exit(1) }
+        let mood = DogMood(percent: 80)
         let content = UNMutableNotificationContent()
         content.title = "5시간 한도를 80% 썼어요"
-        content.body = "\(DogMood(percent: 80).line) · 1시간 5분 후 초기화"
+        content.body = "\(mood.line) · 1시간 5분 후 초기화"
         content.sound = .default
+        if let attachment = AppDelegate.moodAttachmentForTest(mood) {
+            content.attachments = [attachment]
+        }
         centre.add(UNNotificationRequest(identifier: UUID().uuidString,
                                          content: content, trigger: nil)) { error in
             print(error.map { "실패: \($0.localizedDescription)" } ?? "알림 전송됨")
