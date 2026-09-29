@@ -1788,6 +1788,28 @@ private func selfTest() -> Never {
     let tiny = NSRect(x: 0, y: 0, width: 300, height: 300)
     _ = DesktopWidget.snapped(near, in: tiny)
     precondition(DesktopWidget.corner(.topRight, in: tiny, size: card) == nil)
+    // Row phase read from a system widget, as measured on a 1710x1107 display with a
+    // 34pt menu bar: system cards' tops at 42 and 402 (CG), 8pt under the visible top,
+    // not the 30pt measured on the 1512 display. Any card of any row fixes the phase.
+    let tall = NSRect(x: 0, y: 0, width: 1710, height: 1073)
+    let weather = NSRect(x: 16, y: 1107 - 402 - 344, width: 344, height: 344)
+    let anchor = DesktopWidget.rowAnchor(in: tall, widgets: [weather])
+    precondition(anchor == 705, "\(String(describing: anchor))")
+    for rows in [DesktopWidget.slots(in: tall, size: card, anchor: anchor),
+                 DesktopWidget.slots(in: tall, size: DesktopWidget.cellSize, anchor: 1065)] {
+        precondition(rows.first?.maxY == 1065, "\(String(describing: rows.first))")
+        for slot in rows {
+            precondition((1065 - slot.maxY).truncatingRemainder(dividingBy: pitch) == 0, "\(slot) off a row")
+            precondition((slot.minX - 16).truncatingRemainder(dividingBy: pitch) == 0, "\(slot) off a column")
+        }
+    }
+    // The measured miss: our old top (1073 - 30) against the system's (1065).
+    let old = NSRect(origin: NSPoint(x: 736, y: 1043 - card.height), size: card)
+    precondition(DesktopWidget.snapped(old, in: tall, anchor: anchor) == NSPoint(x: 736, y: 1065 - card.height))
+    precondition(DesktopWidget.corner(.topRight, in: tall, size: card, anchor: anchor)?.y == 1065 - card.height)
+    // A widget on another screen says nothing about this one: back to the constants.
+    precondition(DesktopWidget.rowAnchor(in: tall, widgets: [weather.offsetBy(dx: -1920, dy: 0)]) == nil)
+    precondition(DesktopWidget.slots(in: tall, size: card, anchor: nil).first?.maxY == 1073 - 30)
 
     // A 429's Retry-After is a floor: never retry sooner than the server said.
     precondition(AppDelegate.cooldownForTest(.rateLimited(retryAfter: 296), attempt: 1) == 296)

@@ -208,6 +208,13 @@ final class DesktopWidget {
     /// Using the system's numbers is the whole point: a grid of our own, however
     /// well it tiles our card, puts it a few points off every system widget beside it,
     /// and that mismatch is what reads as "stuck somewhere odd".
+    ///
+    /// Except the top. Where the first row sits below the menu bar depends on the
+    /// display: 30pt there, 8pt on a 1710x1107 display with a 34pt menu bar. So the
+    /// row phase is read from a system widget on the same screen when there is one
+    /// (`rowAnchor`), and `gridTop` is only the fallback for a desk without any.
+    /// Columns are left alone: the system's own rows can sit 6pt apart sideways, and
+    /// chasing one of them would put the card off the other.
     static let gridPitch: CGFloat = 180
     static let gridLeft: CGFloat = 16
     static let gridTop: CGFloat = 30
@@ -361,9 +368,11 @@ final class DesktopWidget {
         guard let screen = NSScreen.screens.first(where: { $0.frame.intersects(frame) })
                 ?? NSScreen.main
         else { return }
+        let widgets = Self.systemWidgetFrames()
+        let area = screen.visibleFrame
         withoutSnapping {
-            panel.setFrameOrigin(Self.snapped(frame, in: screen.visibleFrame,
-                                              avoiding: Self.systemWidgetFrames()))
+            panel.setFrameOrigin(Self.snapped(frame, in: area, avoiding: widgets,
+                                              anchor: Self.rowAnchor(in: area, widgets: widgets)))
         }
     }
 
@@ -393,6 +402,12 @@ final class DesktopWidget {
         }
     }
 
+    /// The top edge of a system widget on this screen, if any: every system card's top
+    /// is on the row lattice, so any one of them fixes its phase.
+    static func rowAnchor(in area: NSRect, widgets: [NSRect]) -> CGFloat? {
+        widgets.first { area.intersects($0) }?.maxY
+    }
+
     /// The nearest slot, which by construction keeps the whole card on screen. Pure
     /// arithmetic, so it can be checked without a display.
     ///
@@ -408,8 +423,9 @@ final class DesktopWidget {
     /// from the top-left corner kept landing somewhere other than the gap the user
     /// aimed at -- a widget that refuses to go where it is put is worse than one that
     /// is a few points off the grid.
-    static func snapped(_ frame: NSRect, in area: NSRect, avoiding occupied: [NSRect] = []) -> NSPoint {
-        let candidates = slots(in: area, size: frame.size).filter { slot in
+    static func snapped(_ frame: NSRect, in area: NSRect, avoiding occupied: [NSRect] = [],
+                        anchor: CGFloat? = nil) -> NSPoint {
+        let candidates = slots(in: area, size: frame.size, anchor: anchor).filter { slot in
             !occupied.contains { $0.intersects(slot) }
         }
         let distance = { (slot: NSRect) in hypot(slot.minX - frame.minX, slot.maxY - frame.maxY) }
@@ -427,9 +443,16 @@ final class DesktopWidget {
     /// Every slot a card of `size` fits in, top-left first. `snapped` and the corner
     /// presets land only on these; the overlay draws the grid from the same function.
     /// One function so the picture cannot disagree with the behaviour.
-    static func slots(in area: NSRect, size: NSSize) -> [NSRect] {
+    ///
+    /// `anchor` is the top of any card on the row lattice (see `rowAnchor`); the first
+    /// row is the highest one on that lattice that still keeps `gridEdge` clear of the
+    /// top. Without one, rows start `gridTop` below the top of the area.
+    static func slots(in area: NSRect, size: NSSize, anchor: CGFloat? = nil) -> [NSRect] {
         var out: [NSRect] = []
         var top = area.maxY - gridTop
+        if let anchor {
+            top = anchor + ((area.maxY - gridEdge - anchor) / gridPitch).rounded(.down) * gridPitch
+        }
         while top - size.height >= area.minY + gridEdge {
             var x = area.minX + gridLeft
             while x + size.width <= area.maxX - gridEdge {
@@ -443,8 +466,9 @@ final class DesktopWidget {
 
     /// The grid's extreme slot in a corner -- not the raw screen corner, so a widget
     /// parked "top right" lines up with system widgets there too.
-    static func corner(_ corner: WidgetCorner, in area: NSRect, size: NSSize) -> NSPoint? {
-        let all = slots(in: area, size: size)
+    static func corner(_ corner: WidgetCorner, in area: NSRect, size: NSSize,
+                       anchor: CGFloat? = nil) -> NSPoint? {
+        let all = slots(in: area, size: size, anchor: anchor)
         guard let first = all.first else { return nil }
         let left = corner == .topLeft || corner == .bottomLeft
         let top = corner == .topLeft || corner == .topRight
@@ -519,9 +543,11 @@ final class DesktopWidget {
         // In the overlay's own coordinates, which start at the visible frame.
         let shift = NSPoint(x: -area.minX, y: -area.minY)
         let size = panel.frame.size
-        let target = Self.snapped(panel.frame, in: area, avoiding: Self.systemWidgetFrames())
+        let widgets = Self.systemWidgetFrames()
+        let anchor = Self.rowAnchor(in: area, widgets: widgets)
+        let target = Self.snapped(panel.frame, in: area, avoiding: widgets, anchor: anchor)
         let view = overlay.contentView as? GridOverlayView
-        view?.cells = Self.slots(in: area, size: Self.cellSize)
+        view?.cells = Self.slots(in: area, size: Self.cellSize, anchor: anchor)
             .map { $0.offsetBy(dx: shift.x, dy: shift.y) }
         view?.target = NSRect(origin: NSPoint(x: target.x + shift.x, y: target.y + shift.y),
                               size: size)
@@ -536,7 +562,7 @@ final class DesktopWidget {
         let overlay = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel],
                               backing: .buffered, defer: false)
         overlay.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopIconWindow)) + 1)
-        overlay.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
+        overlay.collectionBehavior = [.canJoinAllSpaces, .transient, .ignoresCycle]
         overlay.isOpaque = false
         overlay.backgroundColor = .clear
         overlay.hasShadow = false
@@ -553,7 +579,9 @@ final class DesktopWidget {
         guard let panel else { return }
         let screen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) }
             ?? NSScreen.main ?? NSScreen.screens[0]
-        guard let origin = Self.corner(corner, in: screen.visibleFrame, size: panel.frame.size)
+        let area = screen.visibleFrame
+        let anchor = Self.rowAnchor(in: area, widgets: Self.systemWidgetFrames())
+        guard let origin = Self.corner(corner, in: area, size: panel.frame.size, anchor: anchor)
         else { return }
         snapWork?.cancel()
         withoutSnapping { panel.setFrameOrigin(origin) }
@@ -580,7 +608,10 @@ final class DesktopWidget {
         // Finder draws the icons in their own window above that one, and a widget
         // with a folder on top of it is a widget you cannot read.
         panel.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopIconWindow)) + 1)
-        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
+        // `.transient`, not `.stationary`: stationary means "unaffected by Mission
+        // Control", so the card stayed put under the Spaces bar while every system
+        // widget went away. Transient windows are hidden there, as theirs are.
+        panel.collectionBehavior = [.canJoinAllSpaces, .transient, .ignoresCycle]
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = false          // system desktop widgets cast none either
@@ -629,7 +660,9 @@ final class DesktopWidget {
         }
         // No saved spot: the top-right corner, where the system's own widgets start.
         if let screen = NSScreen.main,
-           let origin = Self.corner(.topRight, in: screen.visibleFrame, size: panel.frame.size) {
+           let origin = Self.corner(.topRight, in: screen.visibleFrame, size: panel.frame.size,
+                                    anchor: Self.rowAnchor(in: screen.visibleFrame,
+                                                           widgets: Self.systemWidgetFrames())) {
             panel.setFrameOrigin(origin)
         }
     }
