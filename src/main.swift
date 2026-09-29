@@ -558,7 +558,7 @@ final class DogHeaderView: NSView {
     private static let frameInterval: TimeInterval = 1.0 / 12
 
     private static let dogWidth: CGFloat = 62
-    private static let bubbleInset: CGFloat = 11
+    private static let bubbleInset: CGFloat = 15
 
     /// The only part of this view that moves. Invalidating the whole view every frame
     /// would redraw the bubble and ask both text fields to lay out and render again --
@@ -579,11 +579,17 @@ final class DogHeaderView: NSView {
             v.lineBreakMode = .byTruncatingTail
             addSubview(v)
         }
+        // Both lines centred as a block, so the text sits mid-bubble whatever the height.
+        let textBlock = NSLayoutGuide()
+        addLayoutGuide(textBlock)
         NSLayoutConstraint.activate([
+            textBlock.topAnchor.constraint(equalTo: sayLabel.topAnchor),
+            textBlock.bottomAnchor.constraint(equalTo: subLabel.bottomAnchor),
+            textBlock.centerYAnchor.constraint(equalTo: centerYAnchor),
+
             sayLabel.leadingAnchor.constraint(equalTo: leadingAnchor,
                                               constant: 14 + Self.dogWidth + Self.bubbleInset),
             sayLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -16),
-            sayLabel.topAnchor.constraint(equalTo: topAnchor, constant: 17),
 
             subLabel.leadingAnchor.constraint(equalTo: sayLabel.leadingAnchor),
             subLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -16),
