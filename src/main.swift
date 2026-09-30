@@ -757,7 +757,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private static let dogStyleDefaultsKey = "dogStyle"
     private static let hotKeyCodeDefaultsKey = "hotKeyCode"
     private static let hotKeyModifiersDefaultsKey = "hotKeyModifiers"
-    private static let hotKeyDisabledDefaultsKey = "hotKeyDisabled"
 
     /// Background cadence -- and deliberately slow, because the background poll is the
     /// least valuable request the app makes.
@@ -1182,13 +1181,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if !desktopWidget.isVisible && !menuBarVisible { setMenuBarVisible(true) }
     }
 
-    @objc private func moveWidget(_ sender: NSMenuItem) {
-        guard let raw = sender.representedObject as? String,
-              let corner = WidgetCorner(rawValue: raw) else { return }
-        if !desktopWidget.isVisible { toggleWidget() }   // asking where it goes implies wanting it
-        desktopWidget.move(to: corner)
-    }
-
     /// Whether the status item is in the menu bar at all.
     ///
     /// Hiding it is a real option here in a way it isn't for most menu bar apps,
@@ -1262,11 +1254,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         reloadOnDemand(.hotkey)
     }
 
-    /// The saved hotkey, nil when turned off. Nothing saved means the default.
-    private var storedHotKey: Shortcut? {
+    /// The saved hotkey. Nothing saved means the default.
+    private var storedHotKey: Shortcut {
         get {
             let d = UserDefaults.standard
-            if d.bool(forKey: Self.hotKeyDisabledDefaultsKey) { return nil }
             guard let code = d.object(forKey: Self.hotKeyCodeDefaultsKey) as? Int,
                   let mods = d.object(forKey: Self.hotKeyModifiersDefaultsKey) as? Int
             else { return .standard }
@@ -1274,11 +1265,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         set {
             let d = UserDefaults.standard
-            d.set(newValue == nil, forKey: Self.hotKeyDisabledDefaultsKey)
-            if let newValue {
-                d.set(Int(newValue.keyCode), forKey: Self.hotKeyCodeDefaultsKey)
-                d.set(Int(newValue.modifiers), forKey: Self.hotKeyModifiersDefaultsKey)
-            }
+            d.set(Int(newValue.keyCode), forKey: Self.hotKeyCodeDefaultsKey)
+            d.set(Int(newValue.modifiers), forKey: Self.hotKeyModifiersDefaultsKey)
         }
     }
 
@@ -1287,9 +1275,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func applyHotKey() {
         hotKey.unregister()
         hotKeyFailed = false
-        if let shortcut = storedHotKey { hotKeyFailed = !hotKey.register(shortcut) }
-        let text = storedHotKey.map { "현재: \($0.display)" + (hotKeyFailed ? " (다른 앱이 사용 중)" : "") } ?? "꺼짐"
-        hotKeyStatusItem.title = text
+        hotKeyFailed = !hotKey.register(storedHotKey)
+        hotKeyStatusItem.title = "현재: \(storedHotKey.display)" + (hotKeyFailed ? " (다른 앱이 사용 중)" : "")
     }
 
     @objc private func recordHotKey() {
@@ -1303,16 +1290,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Off while recording, so pressing the current combo reaches the recorder
         // instead of popping the card.
         hotKey.unregister()
-    }
-
-    @objc private func resetHotKey() {
-        storedHotKey = .standard
-        applyHotKey()
-    }
-
-    @objc private func disableHotKey() {
-        storedHotKey = nil
-        applyHotKey()
     }
 
     /// Everything that is a preference, in one submenu.
@@ -1333,38 +1310,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         widgetItem.target = self
         menu.addItem(widgetItem)
 
-        // The third surface. Only the in-app hotkey is switchable here: the Raycast
-        // script reads the shared cache file and runs whether or not this app is even
-        // launched, so it is mentioned rather than offered as a toggle.
+        // The third surface: what the hotkey is, and a way to change it. Nothing
+        // more -- it is set once, and a reset or an off switch was clutter.
         let shortcutItem = NSMenuItem(title: "단축키", action: nil, keyEquivalent: "")
         let shortcutMenu = NSMenu()
         hotKeyStatusItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
         shortcutMenu.addItem(hotKeyStatusItem)
-        shortcutMenu.addItem(NSMenuItem.separator())
-        for (title, action) in [("단축키 변경…", #selector(recordHotKey)),
-                                ("기본값(\(Shortcut.standard.display))으로", #selector(resetHotKey)),
-                                ("끄기", #selector(disableHotKey))] {
-            let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
-            item.target = self
-            shortcutMenu.addItem(item)
-        }
-        shortcutMenu.addItem(NSMenuItem.separator())
-        shortcutMenu.addItem(Self.headerMenuItem("Raycast 스크립트도 그대로 쓸 수 있어요"))
+        let change = NSMenuItem(title: "단축키 변경…", action: #selector(recordHotKey), keyEquivalent: "")
+        change.target = self
+        shortcutMenu.addItem(change)
         shortcutItem.submenu = shortcutMenu
         menu.addItem(shortcutItem)
-
-        let place = NSMenuItem(title: "위젯 위치", action: nil, keyEquivalent: "")
-        let corners = NSMenu()
-        for corner in WidgetCorner.allCases {
-            let item = NSMenuItem(title: corner.label, action: #selector(moveWidget(_:)), keyEquivalent: "")
-            item.target = self
-            item.representedObject = corner.rawValue
-            corners.addItem(item)
-        }
-        corners.addItem(NSMenuItem.separator())
-        corners.addItem(Self.headerMenuItem("드래그로도 옮길 수 있어요"))
-        place.submenu = corners
-        menu.addItem(place)
 
         menu.addItem(NSMenuItem.separator())
         menu.addItem(Self.headerMenuItem("메뉴바 모양"))

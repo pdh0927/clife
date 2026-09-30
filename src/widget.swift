@@ -2,20 +2,10 @@ import Cocoa
 
 // MARK: - Desktop widget
 
-/// Where the widget parks. Named corners rather than only free dragging, because a
-/// window at desktop level is the hardest kind to grab: anything on top of it takes
-/// the click, so "just drag it" can be advice the user cannot follow.
+/// A corner of the grid. Used for the first placement (top right, where the
+/// system's own widgets start) and by the selftest.
 enum WidgetCorner: String, CaseIterable {
     case topLeft, topRight, bottomLeft, bottomRight
-
-    var label: String {
-        switch self {
-        case .topLeft:     return "좌측 상단"
-        case .topRight:    return "우측 상단"
-        case .bottomLeft:  return "좌측 하단"
-        case .bottomRight: return "우측 하단"
-        }
-    }
 }
 
 // MARK: - Card
@@ -584,22 +574,6 @@ final class DesktopWidget {
         overlay.ignoresMouseEvents = true
         overlay.contentView = GridOverlayView()
         return overlay
-    }
-
-    /// Park in a named corner of whichever screen the pointer is on, so "put it top
-    /// right" means the display being looked at rather than always the primary one.
-    func move(to corner: WidgetCorner) {
-        guard let panel else { return }
-        let screen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) }
-            ?? NSScreen.main ?? NSScreen.screens[0]
-        let area = screen.visibleFrame
-        let anchor = Self.rowAnchor(in: area, widgets: Self.systemWidgetFrames())
-        guard let origin = Self.corner(corner, in: area, size: panel.frame.size, anchor: anchor)
-        else { return }
-        snapWork?.cancel()
-        withoutSnapping { panel.setFrameOrigin(origin) }
-        saveOrigin(panel)
-        refreshExposure()
     }
 
     func update(limits: [UsageLimit], status: String, reset: (Date?) -> String) {
