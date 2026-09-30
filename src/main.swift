@@ -397,7 +397,7 @@ enum RefreshTrigger: String {
     case launch, menuBar, menuOpen, manual, timer, wake
     /// The desktop was revealed and the widget is now readable.
     case widget
-    /// The Raycast hotkey asked for the card (`clife://peek`).
+    /// The in-app hotkey or the Raycast script (`clife://peek`) asked for the card.
     case hotkey
 }
 
@@ -755,6 +755,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private static let runningDefaultsKey = "dogRunning"
     private static let menuBarDefaultsKey = "menuBarVisible"
     private static let dogStyleDefaultsKey = "dogStyle"
+    private static let hotKeyCodeDefaultsKey = "hotKeyCode"
+    private static let hotKeyModifiersDefaultsKey = "hotKeyModifiers"
+    private static let hotKeyDisabledDefaultsKey = "hotKeyDisabled"
 
     /// Background cadence -- and deliberately slow, because the background poll is the
     /// least valuable request the app makes.
@@ -809,6 +812,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var dogHeader: DogHeaderView!
     private let desktopWidget = DesktopWidget()
     private let peek = PeekPanel()
+    private let hotKey = GlobalHotKey()
+    private let recorder = ShortcutRecorder()
+    private var hotKeyFailed = false
+    private var hotKeyStatusItem: NSMenuItem!
     private var rowViews: [UsageRowView] = []
     private var rowItems: [NSMenuItem] = []
     private var statusMenuItem: NSMenuItem!
@@ -923,6 +930,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // the moment someone is actually reading it, and the only moment it is worth
         // a request. Nothing polls on its behalf.
         desktopWidget.onExposed = { [weak self] in self?.reloadOnDemand(.widget) }
+        hotKey.onPress = { [weak self] in self?.togglePeek() }
+        applyHotKey()
         if desktopWidget.shouldRestore { desktopWidget.show() }
         widgetItem.state = desktopWidget.isVisible ? .on : .off
 
@@ -1242,10 +1251,68 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// while the card is up puts it away.
     func application(_ application: NSApplication, open urls: [URL]) {
         guard urls.contains(where: { $0.scheme == "clife" && $0.host == "peek" }) else { return }
+        togglePeek()
+    }
+
+    /// The one path to the card, shared by `clife://peek` and the in-app hotkey.
+    private func togglePeek() {
         peek.toggle()
         guard peek.isVisible else { return }
         render()   // the "N분 전 업데이트" line is current even if the fetch is skipped
         reloadOnDemand(.hotkey)
+    }
+
+    /// The saved hotkey, nil when turned off. Nothing saved means the default.
+    private var storedHotKey: Shortcut? {
+        get {
+            let d = UserDefaults.standard
+            if d.bool(forKey: Self.hotKeyDisabledDefaultsKey) { return nil }
+            guard let code = d.object(forKey: Self.hotKeyCodeDefaultsKey) as? Int,
+                  let mods = d.object(forKey: Self.hotKeyModifiersDefaultsKey) as? Int
+            else { return .standard }
+            return Shortcut(keyCode: UInt32(code), modifiers: UInt32(mods))
+        }
+        set {
+            let d = UserDefaults.standard
+            d.set(newValue == nil, forKey: Self.hotKeyDisabledDefaultsKey)
+            if let newValue {
+                d.set(Int(newValue.keyCode), forKey: Self.hotKeyCodeDefaultsKey)
+                d.set(Int(newValue.modifiers), forKey: Self.hotKeyModifiersDefaultsKey)
+            }
+        }
+    }
+
+    /// Registers whatever is saved and says how that went in the menu. A combo taken
+    /// by another app is reported, not fatal: the card is still one click away.
+    private func applyHotKey() {
+        hotKey.unregister()
+        hotKeyFailed = false
+        if let shortcut = storedHotKey { hotKeyFailed = !hotKey.register(shortcut) }
+        let text = storedHotKey.map { "현재: \($0.display)" + (hotKeyFailed ? " (다른 앱이 사용 중)" : "") } ?? "꺼짐"
+        hotKeyStatusItem.title = text
+    }
+
+    @objc private func recordHotKey() {
+        // Start first: a recorder already open is cancelled by this call, and its
+        // completion re-registers -- which must happen before we unregister below.
+        recorder.start { [weak self] shortcut in
+            guard let self else { return }
+            if let shortcut { self.storedHotKey = shortcut }
+            self.applyHotKey()   // cancelled: puts the old one back
+        }
+        // Off while recording, so pressing the current combo reaches the recorder
+        // instead of popping the card.
+        hotKey.unregister()
+    }
+
+    @objc private func resetHotKey() {
+        storedHotKey = .standard
+        applyHotKey()
+    }
+
+    @objc private func disableHotKey() {
+        storedHotKey = nil
+        applyHotKey()
     }
 
     /// Everything that is a preference, in one submenu.
@@ -1266,11 +1333,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         widgetItem.target = self
         menu.addItem(widgetItem)
 
-        // Listed but not switchable, because it genuinely isn't ours to switch: the
-        // Raycast script reads the shared cache file and runs whether or not this app
-        // is even launched. Saying so beats leaving the third surface unmentioned and
-        // letting the list read as if there were only two.
-        menu.addItem(NSMenuItem(title: "단축키 · 스크립트 — 항상 켜짐", action: nil, keyEquivalent: ""))
+        // The third surface. Only the in-app hotkey is switchable here: the Raycast
+        // script reads the shared cache file and runs whether or not this app is even
+        // launched, so it is mentioned rather than offered as a toggle.
+        let shortcutItem = NSMenuItem(title: "단축키", action: nil, keyEquivalent: "")
+        let shortcutMenu = NSMenu()
+        hotKeyStatusItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+        shortcutMenu.addItem(hotKeyStatusItem)
+        shortcutMenu.addItem(NSMenuItem.separator())
+        for (title, action) in [("단축키 변경…", #selector(recordHotKey)),
+                                ("기본값(\(Shortcut.standard.display))으로", #selector(resetHotKey)),
+                                ("끄기", #selector(disableHotKey))] {
+            let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+            item.target = self
+            shortcutMenu.addItem(item)
+        }
+        shortcutMenu.addItem(NSMenuItem.separator())
+        shortcutMenu.addItem(Self.headerMenuItem("Raycast 스크립트도 그대로 쓸 수 있어요"))
+        shortcutItem.submenu = shortcutMenu
+        menu.addItem(shortcutItem)
 
         let place = NSMenuItem(title: "위젯 위치", action: nil, keyEquivalent: "")
         let corners = NSMenu()
@@ -1832,6 +1913,18 @@ private func selfTest() -> Never {
     // Everything else backs off geometrically and saturates at the poll interval.
     let backoff = (1...6).map { AppDelegate.cooldownForTest(.transport(UsageAPI.Failure.malformed), attempt: $0) }
     precondition(backoff == [30, 60, 120, 240, 480, 600], "\(backoff)")
+
+    // Hotkey label in the macOS menu order, whatever order the flags were set in.
+    precondition(Shortcut.standard.display == "⌥C", Shortcut.standard.display)
+    let all = Shortcut(keyCode: 8, flags: [.command, .shift, .option, .control])
+    precondition(all?.display == "⌃⌥⇧⌘C", "\(String(describing: all?.display))")
+    precondition(Shortcut(keyCode: 122, modifiers: 256).display == "⌘F1")
+    precondition(Shortcut(keyCode: 999, modifiers: 4096).display == "⌃Key 999")
+    // A global hotkey needs ⌘, ⌥ or ⌃; bare or shift-only keys would eat typing.
+    precondition(Shortcut(keyCode: 8, flags: []) == nil)
+    precondition(Shortcut(keyCode: 8, flags: [.shift]) == nil)
+    precondition(Shortcut(keyCode: 8, flags: [.option]) == .standard)
+    precondition(Shortcut(keyCode: 8, flags: [.control, .shift]) != nil)
 
     print("selftest OK")
     exit(0)

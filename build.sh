@@ -31,7 +31,7 @@ cp "$DIR/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 
 swiftc -O \
   -o "$APP/Contents/MacOS/Clife" \
-  "$DIR/src/main.swift" "$DIR/src/dog.swift" "$DIR/src/widget.swift"
+  "$DIR/src/main.swift" "$DIR/src/dog.swift" "$DIR/src/widget.swift" "$DIR/src/hotkey.swift"
 
 codesign --force --deep --sign "$SIGN_IDENTITY" "$APP"
 

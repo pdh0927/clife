@@ -11,6 +11,7 @@ Execution model: `.claude/rules/execution-model.md`.
 |---|---|
 | `src/main.swift` | API 클라이언트, 응답 캐시, 상태 아이템, 드롭다운, 알림, 진단 플래그. 대부분이 여기 |
 | `src/dog.swift` | 강아지 일러스트(포즈 데이터 + Core Graphics 그리기), `DogStyle`. UI 로직 없음 |
+| `src/hotkey.swift` | 전역 단축키(Carbon `RegisterEventHotKey`, 권한 불필요), `Shortcut` 표시 문자열, 단축키 녹화 패널. 누르면 `clife://peek`과 같은 `togglePeek()`를 탄다 |
 | `src/widget.swift` | 카드 뷰(`UsageCardView`), 바탕화면 패널, 가림 판정, 격자·모서리 배치, 단축키 카드(`PeekPanel`, `clife://peek`). 드롭다운의 뷰를 **재사용**하고 다시 만들지 않는다 |
 | `raycast/claude-usage.py` | Raycast 스크립트 커맨드. 앱과 캐시 파일을 공유 |
 | `design/` | 시안(SVG/HTML)과 `implementation/`(빌드된 앱에서 뽑은 실물 렌더) |
@@ -47,7 +48,8 @@ Execution model: `.claude/rules/execution-model.md`.
 - `Clife --selftest` 로직 검증 / `--probe` 실제 요청 1회 / `--dogsheet <path>`
   일러스트(채움·선)·드롭다운 레이아웃 / `--gridsheet <path>` 드래그 중 격자 /
   `--cardsheet <path>` 위젯·단축키 카드(라이트/다크/한 줄).
-- `clife://peek` — 실행 중인 앱에 단축키 카드를 띄운다(`open -g clife://peek`).
+- `clife://peek` — 실행 중인 앱에 단축키 카드를 띄운다(`open -g clife://peek`). 앱의
+  전역 단축키(기본 ⌥C)도 같은 경로다.
 
 **할 수 없는 것 — "안 된다"고 잘못 판단하기 쉬운 것들**
 - **WidgetKit 익스텐션은 못 쓴다.** 애드혹 서명이라 로드되지 않는다. 바탕화면
