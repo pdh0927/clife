@@ -53,6 +53,15 @@ extension Array where Element == UsageLimit {
     var dogBinding: UsageLimit? {
         first { $0.isSession } ?? self.max { $0.percent < $1.percent }
     }
+
+    /// The weekly value the inner ring draws: the all-models cap, so the ring matches
+    /// the number on the "주간 · 모든 모델" row. A per-model cap running higher is
+    /// still on its own row and still notifies. Falls back to the tightest weekly cap
+    /// only when the all-models row is missing.
+    var ringWeekly: Double? {
+        first { $0.kind == "weekly_all" }?.percent
+            ?? filter { $0.group == "weekly" }.map(\.percent).max()
+    }
 }
 
 // MARK: - Response cache
@@ -1602,10 +1611,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             : (limits.map { String(format: "%@: %.0f%% · %@", $0.title, $0.percent, Self.relativeReset($0.resetsAt)) }
                      + [statusText()]).joined(separator: "\n")
 
-        // Outer ring tracks the session cap; inner tracks the *tightest* weekly cap,
-        // since that -- not the all-models average -- is what actually cuts you off.
+        // Outer ring tracks the session cap; inner tracks the all-models weekly cap.
         let session = limits.first { $0.group == "session" }?.percent
-        let week = limits.filter { $0.group == "weekly" }.map(\.percent).max()
+        let week = limits.ringWeekly
 
         guard let session, let week else {
             setIcon(IconFactory.unknownIcon())
@@ -1737,6 +1745,10 @@ private func selfTest() -> Never {
     let weeklyOnly = limits.filter { !$0.isSession }
     precondition(weeklyOnly.dogBinding?.percent == 39, "no session row: fall back to the tightest")
     precondition([UsageLimit]().dogBinding == nil)
+
+    // The inner ring shows the all-models weekly cap, not a higher per-model one.
+    precondition(limits.ringWeekly == 36, "\(String(describing: limits.ringWeekly))")
+    precondition(limits.filter { $0.kind != "weekly_all" }.ringWeekly == 39, "no all-models row: tightest")
 
     // Two scoped rows with no model name must not collapse onto one identity, or they
     // share a set of fired thresholds and one of them silently stops notifying.
